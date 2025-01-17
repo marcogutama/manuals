@@ -34,6 +34,18 @@ Deshacer cambios en el directorio de trabajo: Si quieres deshacer todos los camb
 
 git restore .
 
+## Deshacer cambios no confirmados (no stage)
+git restore src/main/java/ec/fin/baustro/service/ProducerProcessor.java
+
+## Quitar del stage (pero mantiene los cambios)
+git reset <file>
+
+## Quitar del stage y resetea los cambios (stage)
+git reset HEAD src/main/java/ec/fin/baustro/service/ProducerProcessor.java
+
+## Editar mensaje commit
+git commit --amend
+
 ## Eliminar archivos nuevos (??):
 git clean -fd
 
