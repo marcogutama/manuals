@@ -58,3 +58,6 @@ git pull origin dev
 git checkout 3-az-246233
 git merge dev
 git push origin dev
+
+## Revertir un archivo a un commit anterior
+git checkout <commit-hash> -- <archivo>
