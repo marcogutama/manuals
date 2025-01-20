@@ -1,6 +1,6 @@
 # Comandos mas comunes git
 
-# git status -s
+## git status -s
 
 ## buscar un archivo en linux
 find . -name "FFCAddTurnCondition.java"
@@ -19,20 +19,8 @@ git log --oneline --graph
 git difftool HEAD -- /path/test.txt
 git difftool commit1 commit2 -- /path/test.txt
 
-
 ## Reversar commit cuando aun no se hace push:
 git reset --soft HEAD~1
-
-## Si al hacer git status muestra cambios que ya se deshicieron:
-
-Deshacer cambios preparados (staged): Para quitar los cambios que ya has agregado a la zona de preparación (staging area), puedes usar el siguiente comando:
-
-git reset HEAD
-Esto moverá todos los archivos de la zona de preparación de vuelta al estado no preparado.
-
-Deshacer cambios en el directorio de trabajo: Si quieres deshacer todos los cambios en tu directorio de trabajo (incluyendo los archivos eliminados que están marcados como "deleted"), puedes usar:
-
-git restore .
 
 ## Deshacer cambios no confirmados (no stage)
 git restore src/main/java/ec/fin/baustro/service/ProducerProcessor.java
