@@ -15,7 +15,7 @@ git ls-files "*test*"
 git log --follow /path/test.txt -> follow: obtiene historial de un archivo incluso si se ha renombrado o movido en algún momento del tiempo
 git log --oneline --graph
 
-## Ver diferencias con meld
+## Ver diferencias con gui
 git difftool HEAD -- /path/test.txt
 git difftool commit1 commit2 -- /path/test.txt
 
@@ -27,6 +27,7 @@ git restore src/main/java/ec/fin/baustro/service/ProducerProcessor.java
 
 ## Quitar del stage (pero mantiene los cambios)
 git reset <file>
+git reset .
 
 ## Quitar del stage y resetea los cambios (stage)
 git reset HEAD src/main/java/ec/fin/baustro/service/ProducerProcessor.java
@@ -49,3 +50,7 @@ git push origin dev
 
 ## Revertir un archivo a un commit anterior
 git checkout <commit-hash> -- <archivo>
+
+## COnfiguracion herramienta gui para comparacion
+git config --global diff.tool meld
+git config --global difftool.prompt false
