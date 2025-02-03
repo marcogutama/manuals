@@ -51,6 +51,18 @@ git push origin dev
 ## Revertir un archivo a un commit anterior
 git checkout <commit-hash> -- <archivo>
 
-## COnfiguracion herramienta gui para comparacion
+## Configuracion herramienta gui para comparacion
 git config --global diff.tool meld
 git config --global difftool.prompt false
+
+## Configuracion git global
+git config --list --global
+
+## Guardar cambios temporalmente
+git stash
+
+## Comprueba que los cambios están guardados
+git stash list
+
+## Restaura cambios desde el stash
+git stash pop
