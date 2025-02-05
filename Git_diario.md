@@ -15,9 +15,13 @@ git ls-files "*test*"
 git log --follow /path/test.txt -> follow: obtiene historial de un archivo incluso si se ha renombrado o movido en algún momento del tiempo
 git log --oneline --graph
 
-## Ver diferencias con gui
+## Ver diferencias con gui (difftool), sin gui (diff)
 git difftool HEAD -- /path/test.txt
 git difftool commit1 commit2 -- /path/test.txt
+
+## Ver archivos modificados en un commit específico
+git show --name-only <commit-hash>
+git show <commit-hash>	
 
 ## Reversar commit cuando aun no se hace push:
 git reset --soft HEAD~1
