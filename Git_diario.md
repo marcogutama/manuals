@@ -14,6 +14,9 @@ git ls-files "*test*"
 ## Ver historial de un objecto
 git log --follow /path/test.txt -> follow: obtiene historial de un archivo incluso si se ha renombrado o movido en algún momento del tiempo
 git log --oneline --graph
+git log --author="parte_del_nombre"
+git log --author="nombre_del_autor" --pretty=format:"%h - %s"
+git log --author="nombre_del_autor" --since="2024-01-01" --until="2024-12-31"
 
 ## Ver diferencias con gui (difftool), sin gui (diff)
 git difftool HEAD -- /path/test.txt
