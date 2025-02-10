@@ -21,6 +21,8 @@ git log --author="nombre_del_autor" --since="2024-01-01" --until="2024-12-31"
 ## Ver diferencias con gui (difftool), sin gui (diff)
 git difftool HEAD -- /path/test.txt
 git difftool commit1 commit2 -- /path/test.txt
+git diff dev..qa -- path/to/your/file
+git diff dev:/path/test.txt qa:/path/test.txt
 
 ## Ver archivos modificados en un commit específico
 git show --name-only <commit-hash>
