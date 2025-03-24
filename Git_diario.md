@@ -75,3 +75,7 @@ git stash list
 
 ## Restaura cambios desde el stash
 git stash pop
+
+## Crear una nueva rama
+git branch nombre_de_la_rama
+git checkout -b nombre_de_la_rama	->crear y se cambia a la nueva rama en un solo paso
