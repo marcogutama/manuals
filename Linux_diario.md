@@ -1,5 +1,10 @@
 # Comandos mas comunes linux
 
+## buscar un archivo en linux
+find . -name "FFCAddTurnCondition.java"
+find . -type f -name "*.properties"  ->-type f: Indica que solo quieres buscar archivos (no directorios u otros tipos de archivos).
+find . -type f -name "*test*"
+
 ## Convertir archivo con formato DOS a Unix
 - Opcion 1: dos2unix script.sh
 - Opcion 2: sed -i 's/\r$//' script.sh

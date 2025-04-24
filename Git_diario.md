@@ -1,11 +1,27 @@
 # Comandos mas comunes git
 
-## git status -s
+## git setup
+git config --global user.name "Tu Nombre"
+git config --global user.email "tu.email@ejemplo.com"
+git config --global core.editor "nano"  # o vim, emacs, etc.
+git config --global color.ui auto
 
-## buscar un archivo en linux
-find . -name "FFCAddTurnCondition.java"
-find . -type f -name "*.properties"  ->-type f: Indica que solo quieres buscar archivos (no directorios u otros tipos de archivos).
-find . -type f -name "*test*"
+## Verificar configuracion
+git config --list
+git config --list --global
+
+## Configurar alias
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.ci commit
+git config --global alias.st status
+
+## Crear repositorio
+mkdir mi-proyecto
+cd mi-proyecto
+git init
+
+## git status -s
 
 ## Buscar archivos en git
 git ls-files "*.properties"
@@ -18,6 +34,9 @@ git log --author="parte_del_nombre"
 git log --author="nombre_del_autor" --pretty=format:"%h - %s"
 git log --author="nombre_del_autor" --since="2024-01-01" --until="2024-12-31"
 
+## Para actualizar (hacer pull) de la rama qa sin moverte de dev
+git fetch origin qa:qa
+
 ## Ver diferencias con gui (difftool), sin gui (diff)
 git difftool HEAD -- /path/test.txt
 git difftool commit1 commit2 -- /path/test.txt
@@ -26,7 +45,10 @@ git diff dev:/path/test.txt qa:/path/test.txt
 
 ## Ver archivos modificados en un commit específico
 git show --name-only <commit-hash>
-git show <commit-hash>	
+git show <commit-hash>
+
+## Descartar todos los cambios 
+git reset --hard HEAD
 
 ## Reversar commit cuando aun no se hace push:
 git reset --soft HEAD~1
@@ -47,8 +69,17 @@ git commit --amend
 ## Eliminar archivos nuevos (??):
 git clean -fd
 
-## Buscar una rama
-git branch -a|grep 276809
+## Crear una nueva rama
+git branch nombre_de_la_rama
+git checkout -b nombre_de_la_rama	->crear y se cambia a la nueva rama en un solo paso
+
+## Eliminar una rama local
+git branch -d nombre-de-la-rama
+
+## Listar ramas
+git branch		# solo muestra las ramas locales
+git branch -a	# ramas locales y remotas
+git branch -r	# solo ramas remotas
 
 ## Hacer merge desde la rama 3-az-246233 a dev
 git checkout dev
@@ -64,9 +95,6 @@ git checkout <commit-hash> -- <archivo>
 git config --global diff.tool meld
 git config --global difftool.prompt false
 
-## Configuracion git global
-git config --list --global
-
 ## Guardar cambios temporalmente
 git stash
 
@@ -75,7 +103,3 @@ git stash list
 
 ## Restaura cambios desde el stash
 git stash pop
-
-## Crear una nueva rama
-git branch nombre_de_la_rama
-git checkout -b nombre_de_la_rama	->crear y se cambia a la nueva rama en un solo paso
