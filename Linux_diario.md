@@ -60,3 +60,10 @@ Si deseas extraer en una carpeta específica, puedes añadir la opción `-C` seg
 ```bash
 tar -xzf geminicommit-v0.2.6-linux-amd64.tar.gz -C /ruta/destino
 ```
+
+### Validar conectividad a una IP y puerto específico 
+```
+telnet <ip_address> <port>
+nc -zv <ip_address> <port>
+curl -v telnet://<ip_address>:<port>
+```
