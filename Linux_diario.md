@@ -67,3 +67,6 @@ telnet <ip_address> <port>
 nc -zv <ip_address> <port>
 curl -v telnet://<ip_address>:<port>
 ```
+
+### Obtener ip publica 
+curl ifconfig.me
