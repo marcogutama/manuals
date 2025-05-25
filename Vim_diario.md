@@ -43,6 +43,7 @@ Ctrl+r: Rehacer
 /patron: Buscar un patrón
 n: Buscar la siguiente coincidencia
 N: Buscar la coincidencia anterior
+:%d Borrar todo el contenido del archivo
 
 ### Consejos:
 
