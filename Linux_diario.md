@@ -1,6 +1,6 @@
 # Comandos mas comunes linux
 
-## buscar un archivo en linux
+## Buscar un archivo en linux
 find . -name "FFCAddTurnCondition.java"
 find . -type f -name "*.properties"  ->-type f: Indica que solo quieres buscar archivos (no directorios u otros tipos de archivos).
 find . -type f -name "*test*"
@@ -61,12 +61,30 @@ Si deseas extraer en una carpeta específica, puedes añadir la opción `-C` seg
 tar -xzf geminicommit-v0.2.6-linux-amd64.tar.gz -C /ruta/destino
 ```
 
-### Validar conectividad a una IP y puerto específico 
+## Validar conectividad a una IP y puerto específico 
 ```
 telnet <ip_address> <port>
 nc -zv <ip_address> <port>
 curl -v telnet://<ip_address>:<port>
 ```
 
-### Obtener ip publica 
+## Obtener ip publica 
 curl ifconfig.me
+
+## Curl
+### Get Request simple
+curl https://jsonplaceholder.typicode.com/posts/1
+
+### Get Request con cabeceras (headers)
+curl -H "Accept: application/json" https://jsonplaceholder.typicode.com/posts/1
+
+### Post Request con datos en x-www-form-urlencoded
+curl -X POST -d "username=juan&password=1234" https://httpbin.org/post
+
+### Post Request con JSON
+curl -X POST -H "Content-Type: application/json" \
+    -d '{"nombre":"Juan", "edad":30}' \
+    https://httpbin.org/post
+
+
+
