@@ -104,3 +104,6 @@ git stash list
 
 ## Restaura cambios desde el stash
 git stash pop
+
+## Helper contraseñas (Git las guardará en ~/.git-credentials, y no te las volverá a pedir)
+git config --global credential.helper store
