@@ -34,6 +34,8 @@ git log --author="parte_del_nombre"
 git log --author="nombre_del_autor" --pretty=format:"%h - %s"
 git log --author="nombre_del_autor" --since="2024-01-01" --until="2024-12-31"
 git log <nombre-de-la-rama> # Lista todos los commits de la rama en especificada
+git log <nombre-de-la-rama> --grep="filter" # Filtrar con grep
+
 
 ## Para actualizar (hacer pull) de la rama qa sin moverte de dev
 git fetch origin qa:qa
