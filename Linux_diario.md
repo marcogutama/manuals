@@ -86,5 +86,15 @@ curl -X POST -H "Content-Type: application/json" \
     -d '{"nombre":"Juan", "edad":30}' \
     https://httpbin.org/post
 
+## Descargar archivos
+wget https://ejemplo.com/archivo.zip
+wget -c https://ejemplo.com/archivo.zip  # c: soporta reanudación
+wget -O mi_archivo.zip https://ejemplo.com/archivo.zip # Si quieres cambiar el nombre del archivo descargado
+
+curl -O https://ejemplo.com/archivo.zip # Guarda el archivo con el nombre original del servidor
+curl -o mi_archivo.zip https://ejemplo.com/archivo.zip # Para guardarlo con un nombre personalizado
+Sin las opciones -O o -o, curl imprimirá el contenido del archivo directamente en la terminal (stdout)
+
+
 
 
