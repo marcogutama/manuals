@@ -34,6 +34,8 @@ git log --author="parte_del_nombre"
 git log --author="nombre_del_autor" --pretty=format:"%h - %s"
 git log --author="nombre_del_autor" --since="2024-01-01" --until="2024-12-31"
 git log <nombre-de-la-rama> # Lista todos los commits de la rama en especificada
+git log <nombre-de-la-rama> --grep="filter" # Filtrar con grep
+
 
 ## Para actualizar (hacer pull) de la rama qa sin moverte de dev
 git fetch origin qa:qa
@@ -96,14 +98,14 @@ git checkout <commit-hash> -- <archivo>
 git config --global diff.tool meld
 git config --global difftool.prompt false
 
-## Guardar cambios temporalmente
-git stash
-
-## Comprueba que los cambios están guardados
-git stash list
-
-## Restaura cambios desde el stash
-git stash pop
+## Stash
+git stash					# Guardar cambios temporalmente
+git stash pop 				# Restaura cambios desde el stash
+git stash apply				# Aplica el stash a tu área de trabajo actual, pero deja el stash en la lista de stashes
+git stash list 				# Listar stashes
+git stash show <stash_name>	# Ver qué contiene cada stash
+git stash drop <stash_name>	# Elimina un stash. Si no especificas <stash_name>, elimina el stash más reciente
+git stash clear				# Eliminar TODOS los stashes
 
 ## Helper contraseñas (Git las guardará en ~/.git-credentials, y no te las volverá a pedir)
 git config --global credential.helper store
