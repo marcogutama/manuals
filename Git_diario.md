@@ -90,6 +90,7 @@ git pull origin dev
 git checkout 3-az-246233
 git merge dev
 git push origin dev
+git merge --abort		# Cancelar completamente el merge y volver al estado anterior
 
 ## Revertir un archivo a un commit anterior
 git checkout <commit-hash> -- <archivo>
