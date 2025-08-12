@@ -110,3 +110,19 @@ git stash clear				# Eliminar TODOS los stashes
 
 ## Helper contraseñas (Git las guardará en ~/.git-credentials, y no te las volverá a pedir)
 git config --global credential.helper store
+
+## Traer los cambios de un commit específico de una rama a otra
+git cherry-pick <hash-del-commit>
+
+- Si hay conflictos, Git te pedirá resolverlos manualmente
+git add .
+git cherry-pick --continue
+
+- Para traer múltiples commits específicos:
+git cherry-pick <commit1> <commit2> <commit3>
+
+- Para traer un rango de commits:
+git cherry-pick <commit-inicio>^..<commit-fin>
+
+- Solo aplicar los cambios sin hacer commit automáticamente:
+git cherry-pick --no-commit <hash-del-commit>
