@@ -198,6 +198,8 @@ git stash list                      # Listar todos los stashes
 git stash show <stash_name>         # Ver contenido de un stash
 git stash drop <stash_name>         # Eliminar stash específico
 git stash clear                     # Eliminar TODOS los stashes
+git stash show -p stash@{0}         # Ver los cambios del stash más reciente (stash@{0})
+git stash show stash@{0}            # Resumen de archivos del stash más reciente
 ```
 
 ---
