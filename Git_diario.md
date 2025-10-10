@@ -18,6 +18,7 @@ git config --global difftool.prompt false
 
 # Helper para contraseñas (guarda en ~/.git-credentials)
 git config --global credential.helper store
+git config --global --unset credential.helper	# Limpiar las credenciales
 ```
 
 ### Alias útiles
