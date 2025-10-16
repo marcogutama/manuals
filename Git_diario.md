@@ -91,6 +91,8 @@ git log --author="nombre" --pretty=format:"%h - %s"
 git log --since="2024-01-01" --until="2024-12-31"
 git log <rama>                       # Commits de una rama específica
 git log <rama> --grep="filtro"       # Filtrar con grep
+git log -- path/al/archivo           # Historial de commits de un archivo
+git log -p -- path/al/archivo        # Incluir diffs (los cambios realizados en cada commit)
 ```
 
 ### Ver cambios específicos
