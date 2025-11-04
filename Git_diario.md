@@ -160,8 +160,9 @@ git merge --abort                    # Cancelar merge en proceso
 
 ### Revertir commits
 ```bash
-git reset --soft HEAD~1              # Deshacer último commit (mantiene cambios)
-git checkout <commit-hash> -- <archivo>  # Revertir archivo específico
+git reset --soft HEAD~1              		# Deshacer último commit (mantiene cambios)
+git checkout <commit-hash> -- <archivo>  	# Revertir archivo específico
+git reset --hard origin/main				# Descartar commits locales
 ```
 
 ### Editar commits
