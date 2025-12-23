@@ -11,6 +11,10 @@ find . -type f -name "*test*"
 - Opcion 3 (vim): :set ff=unix
 - Validar con: file script.sh
 
+## Renombrar carpeta
+mv "manuals baustro" manuals_baustro
+mv manuals\ baustro manuals_baustro
+
 ## Revision logs
 ### Less
 ```
