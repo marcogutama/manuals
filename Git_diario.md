@@ -58,14 +58,20 @@ git ls-files "*.properties"
 git ls-files "*test*"
 ```
 
-### Agregar y quitar del stage
+### Preparar cambios (Stage)
 ```bash
-# Quitar del stage (mantiene cambios)
-git reset <archivo>
-git reset .
-
-# Quitar del stage y descartar cambios
-git reset HEAD <archivo>
+git add <archivo>          # Preparar un archivo específico
+git add .                  # Preparar cambios del directorio actual hacia abajo
+git add -A                 # Preparar TODO el repositorio (independiente de la carpeta actual)
+git add :/                 # Preparar TODO desde la raíz del proyecto
+git add -u                 # Preparar solo archivos ya rastreados (ignora archivos nuevos ??)
+```
+### Quitar del stage (Unstage)
+# Quitar del stage (mantiene los cambios en el archivo)
+```bash
+git reset <archivo>        # Quitar un archivo específico
+git reset .                # Quitar todo lo del directorio actual
+git reset :/               # Quitar todo lo del repositorio (Global)
 ```
 
 ### Descartar cambios
