@@ -119,6 +119,9 @@ git difftool <commit1> <commit2> -- <archivo>
 ```bash
 git diff dev..qa -- <archivo>
 git diff dev:<archivo> qa:<archivo>
+git diff <archivo>                  # Ver cambios NO staged
+git diff --staged <archivo>         # Ver cambios STAGED
+git diff HEAD                       # Ver TODOS los cambios (working + staged vs último commit)
 ```
 
 ## 🌿 Manejo de ramas
