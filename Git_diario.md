@@ -177,7 +177,9 @@ git reset --hard origin/main				# Descartar commits locales
 
 ### Editar commits
 ```bash
-git commit --amend                   # Editar mensaje del último commit
+git commit --amend                      # Editar mensaje del último commit
+git commit --amend -m "First commit"
+git commit --amend --no-edit            # Fusiona los cambios con el commit anterior
 ```
 
 ## 🍒 Cherry-pick
