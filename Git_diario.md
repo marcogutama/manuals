@@ -99,6 +99,7 @@ git log <rama>                       # Commits de una rama específica
 git log <rama> --grep="filtro"       # Filtrar con grep
 git log -- path/al/archivo           # Historial de commits de un archivo
 git log -p -- path/al/archivo        # Incluir diffs (los cambios realizados en cada commit)
+git log --all                        # Log de todas las ramas
 ```
 
 ### Ver cambios específicos
