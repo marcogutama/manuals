@@ -99,6 +99,6 @@ curl -O https://ejemplo.com/archivo.zip # Guarda el archivo con el nombre origin
 curl -o mi_archivo.zip https://ejemplo.com/archivo.zip # Para guardarlo con un nombre personalizado
 Sin las opciones -O o -o, curl imprimirá el contenido del archivo directamente en la terminal (stdout)
 
-
-
+## Identificar qué proceso está usando el puerto (ej. 8585)
+sudo lsof -i :8585
 
