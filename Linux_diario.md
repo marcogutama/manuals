@@ -99,6 +99,42 @@ curl -O https://ejemplo.com/archivo.zip # Guarda el archivo con el nombre origin
 curl -o mi_archivo.zip https://ejemplo.com/archivo.zip # Para guardarlo con un nombre personalizado
 Sin las opciones -O o -o, curl imprimirá el contenido del archivo directamente en la terminal (stdout)
 
-## Identificar qué proceso está usando el puerto (ej. 8585)
+## Identificar qué proceso está usando un puerto (ej. 8585)
 sudo lsof -i :8585
 
+## Ejecutar telnet en un contenedor si herramientas (sin instalar nada)
+
+En Linux puro, puedes usar **`/dev/tcp`** que es una funcionalidad nativa del shell (bash):
+
+### ✅ Opción 1 — `/dev/tcp` (la más simple)
+```bash
+bash -c "echo > /dev/tcp/10.16.191.33/8444" && echo "ABIERTO" || echo "CERRADO/FILTRADO"
+```
+
+O con timeout para no quedarte esperando:
+```bash
+timeout 3 bash -c "echo > /dev/tcp/10.16.191.33/8444" && echo "Puerto ABIERTO" || echo "Puerto CERRADO o TIMEOUT"
+```
+
+### ✅ Opción 2 — Con más detalle usando `/dev/tcp`
+```bash
+(echo >/dev/tcp/10.16.191.33/8444) 2>/dev/null \
+  && echo "CONECTADO: puerto 8444 accesible" \
+  || echo "FALLO: puerto 8444 no accesible"
+```
+
+### ✅ Opción 3 — Si el contenedor tiene `curl`
+```bash
+curl -v telnet://10.16.191.33:8444 --connect-timeout 5
+```
+
+### ✅ Opción 4 — Si el contenedor tiene `wget`
+```bash
+wget -q --spider --timeout=5 http://10.16.191.33:8444 2>&1 | head -5
+```
+
+---
+
+## Recomendación
+
+La **Opción 1 con `/dev/tcp`** es la más directa porque solo depende de `bash`, que siempre está presente. Si el contenedor usa `sh` (dash/ash en vez de bash), puede que no funcione — en ese caso prueba llamando `bash` explícitamente como se muestra arriba.

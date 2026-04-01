@@ -14,6 +14,8 @@ Quarkus command-line interface (CLI) and Maven commands provide essential tools 
 | **List all extensions** | `./mvnw quarkus:list-extensions` | `quarkus ext list` |
 | **Update Quarkus version** | `./mvnw quarkus:update` | `quarkus update` |
 
+Ejemplo: quarkus create app ec.fin.baustro:servicing-appsecuritymgmt --extension quarkus-rest --no-code
+
 ---
 
 ## 2. Development and Running Applications
