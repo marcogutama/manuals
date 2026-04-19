@@ -138,3 +138,14 @@ wget -q --spider --timeout=5 http://10.16.191.33:8444 2>&1 | head -5
 ## Recomendación
 
 La **Opción 1 con `/dev/tcp`** es la más directa porque solo depende de `bash`, que siempre está presente. Si el contenedor usa `sh` (dash/ash en vez de bash), puede que no funcione — en ese caso prueba llamando `bash` explícitamente como se muestra arriba.
+
+---
+
+## Generar uuid
+| Método / Comando                   | Bytes | Bits | Formato                | Ejemplo de salida                                                  | Uso típico                                                |
+| ---------------------------------- | ----- | ---- | ---------------------- | ------------------------------------------------------------------ | --------------------------------------------------------- |
+| `uuidgen`                          | 16    | 128  | UUID (hex con guiones) | `550e8400-e29b-41d4-a716-446655440000`                             | Identificadores únicos, correlación                       |
+| `cat /proc/sys/kernel/random/uuid` | 16    | 128  | UUID (hex con guiones) | `123e4567-e89b-12d3-a456-426614174000`                             | Alternativa a `uuidgen`                                   |
+| `openssl rand -hex 16`             | 16    | 128  | Hexadecimal            | `9f1c2e7a4b8d6c3e5f9a1b2c3d4e5f6a`                                 | API keys simples                                          |
+| `openssl rand -hex 32`             | 32    | 256  | Hexadecimal            | `a3f9c2e7b4d8c6e1f0a9b2c3d4e5f6a7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3` | API keys seguras                                          |
+| `openssl rand -base64 32`          | 32    | 256  | Base64                 | `q83Jk2l9ZkP1v8sL0xYwTQeR7uH3aB6c9dEfGhIjKlM=`                     | Tokens seguros (requiere manejo de caracteres especiales) |
