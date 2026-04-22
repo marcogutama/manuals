@@ -102,6 +102,12 @@ git log -p -- path/al/archivo        # Incluir diffs (los cambios realizados en 
 git log --all                        # Log de todas las ramas
 ```
 
+### Restaurar un archivo a un commit anterior
+```bash
+git restore --source <commit-hash> <archivo>    # Recomendado para versiones modernas de Git
+git checkout <commit-hash> -- <archivo>         # La forma tradicional
+```
+
 ### Ver cambios específicos
 ```bash
 git show <commit-hash>               # Ver commit completo
