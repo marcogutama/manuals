@@ -10,20 +10,21 @@ git config --global core.editor "nano"  # o vim, emacs, etc.
 git config --global color.ui auto
 ```
 
-### Configurar herramientas
+### Herramienta de comparación visual
 ```bash
-# Herramienta de comparación visual
 git config --global diff.tool meld
 git config --global difftool.prompt false
+```
 
-# Helper para contraseñas (guarda en ~/.git-credentials)
-git config --global credential.helper store
-git config --global --unset credential.helper	# Limpiar las credenciales
+### Credenciales
+```bash
+git config --global credential.helper store     # Guarda en ~/.git-credentials
+git config --global --unset credential.helper   # Limpiar credenciales guardadas
 ```
 
 ### Alias útiles
 ```bash
-git config --global alias.co checkout
+git config --global alias.sw switch
 git config --global alias.br branch
 git config --global alias.ci commit
 git config --global alias.st status
@@ -35,24 +36,20 @@ git config --list
 git config --list --global
 ```
 
-## 🚀 Inicialización y estado
+---
 
-### Crear repositorio
-```bash
-mkdir mi-proyecto
-cd mi-proyecto
-git init
-```
+## 🚀 Estado del repositorio
 
-### Estado del repositorio
 ```bash
 git status          # Estado completo
-git status -s        # Estado resumido
+git status -s       # Estado resumido
 ```
+
+---
 
 ## 📁 Manejo de archivos
 
-### Buscar archivos
+### Buscar archivos rastreados
 ```bash
 git ls-files "*.properties"
 git ls-files "*test*"
@@ -60,143 +57,181 @@ git ls-files "*test*"
 
 ### Preparar cambios (Stage)
 ```bash
-git add <archivo>          # Preparar un archivo específico
-git add .                  # Preparar cambios del directorio actual hacia abajo
-git add -A                 # Preparar TODO el repositorio (independiente de la carpeta actual)
-git add :/                 # Preparar TODO desde la raíz del proyecto
-git add -u                 # Preparar solo archivos ya rastreados (ignora archivos nuevos ??)
+git add <archivo>   # Preparar un archivo específico
+git add .           # Preparar cambios del directorio actual hacia abajo
+git add -A          # Preparar TODO el repositorio (independiente de la carpeta actual)
+git add :/          # Preparar TODO desde la raíz del proyecto
+git add -u          # Preparar solo archivos ya rastreados (no incluye archivos nuevos sin rastrear)
 ```
+
 ### Quitar del stage (Unstage)
-# Quitar del stage (mantiene los cambios en el archivo)
 ```bash
-git reset <archivo>        # Quitar un archivo específico
-git reset .                # Quitar todo lo del directorio actual
-git reset :/               # Quitar todo lo del repositorio (Global)
+git restore --staged <archivo>  # Quitar un archivo específico del stage (Git >= 2.23, recomendado)
+git restore --staged .          # Quitar todo el directorio actual del stage
+git reset <archivo>             # Alternativa tradicional (Git < 2.23)
+git reset :/                    # Alternativa tradicional: quitar todo el repositorio del stage
 ```
 
-### Descartar cambios
+### Descartar cambios no confirmados
 ```bash
-# Descartar cambios no confirmados
-git restore <archivo>
-
-# Descartar TODOS los cambios
-git reset --hard HEAD
-
-# Eliminar archivos nuevos (??)
-git clean -fd
+git restore <archivo>       # Descartar cambios de un archivo específico
+git reset --hard HEAD       # Descartar TODOS los cambios (working tree + stage)
+git clean -fd               # Eliminar archivos y carpetas nuevos sin rastrear
 ```
+
+---
+
+## 💾 Stash (cambios temporales)
+
+### Operaciones básicas
+```bash
+git stash                   # Guardar cambios temporalmente
+git stash pop               # Restaurar el último stash y eliminarlo
+git stash apply             # Aplicar el último stash sin eliminarlo
+```
+
+### Gestión avanzada
+```bash
+git stash list                  # Listar todos los stashes guardados
+git stash show stash@{0}        # Resumen de archivos del stash más reciente
+git stash show -p stash@{0}     # Ver los cambios detallados del stash más reciente
+git stash drop stash@{0}        # Eliminar un stash específico
+git stash clear                 # Eliminar TODOS los stashes
+```
+
+---
 
 ## 📜 Historial y logs
 
 ### Ver historial
 ```bash
 git log --oneline --graph
-git log --follow <archivo>           # Sigue renombres/movimientos
+git log --follow <archivo>                      # Sigue renombres/movimientos del archivo
 git log --author="nombre_autor"
 git log --author="nombre" --pretty=format:"%h - %s"
 git log --since="2024-01-01" --until="2024-12-31"
-git log <rama>                       # Commits de una rama específica
-git log <rama> --grep="filtro"       # Filtrar con grep
-git log -- path/al/archivo           # Historial de commits de un archivo
-git log -p -- path/al/archivo        # Incluir diffs (los cambios realizados en cada commit)
-git log --all                        # Log de todas las ramas
+git log <rama>                                  # Commits de una rama específica
+git log <rama> --grep="filtro"                  # Filtrar commits por texto
+git log -- path/al/archivo                      # Historial de commits de un archivo
+git log -p -- path/al/archivo                   # Historial + diffs de un archivo
+git log --all                                   # Log de todas las ramas
 ```
 
-### Restaurar un archivo a un commit anterior
+### Ver cambios de un commit específico
 ```bash
-git restore --source <commit-hash> <archivo>    # Recomendado para versiones modernas de Git
-git checkout <commit-hash> -- <archivo>         # La forma tradicional
+git show <commit-hash>                          # Ver commit completo con diff
+git show --name-only <commit-hash>              # Solo archivos modificados en ese commit
 ```
 
-### Ver cambios específicos
-```bash
-git show <commit-hash>               # Ver commit completo
-git show --name-only <commit-hash>   # Solo archivos modificados
-```
+---
 
 ## 🔍 Comparar diferencias
 
-### Con herramienta visual (difftool)
+### Con herramienta visual (meld u otro difftool)
 ```bash
 git difftool HEAD -- <archivo>
 git difftool <commit1> <commit2> -- <archivo>
 ```
 
-### Con línea de comandos (diff)
+### Con línea de comandos
 ```bash
-git diff dev..qa -- <archivo>
-git diff dev:<archivo> qa:<archivo>
-git diff <archivo>                  # Ver cambios NO staged
-git diff --staged <archivo>         # Ver cambios STAGED
-git diff HEAD                       # Ver TODOS los cambios (working + staged vs último commit)
+git diff <archivo>                  # Cambios NO staged (working tree vs último commit)
+git diff --staged <archivo>         # Cambios STAGED (listos para commit)
+git diff HEAD                       # TODOS los cambios (working + staged vs último commit)
+git diff dev..qa -- <archivo>       # Diferencias de un archivo entre dos ramas
+git diff dev:<archivo> qa:<archivo> # Otra forma de comparar el mismo archivo entre ramas
 ```
+
+---
+
+## ⏪ Revertir archivos y commits
+
+### Restaurar un archivo a un commit anterior
+```bash
+git restore --source <commit-hash> <archivo>    # Recomendado (Git >= 2.23)
+git restore --source <commit-hash> .            # Restaurar todos los archivos del directorio
+git checkout <commit-hash> -- <archivo>         # Alternativa tradicional (Git < 2.23)
+```
+
+### Revertir commits
+```bash
+git revert <commit-hash>            # Crea un nuevo commit que deshace los cambios (seguro para ramas compartidas)
+git reset --soft HEAD~1             # Deshace el último commit pero mantiene los cambios en stage
+git reset --hard origin/<rama>      # Descarta commits locales y sincroniza con el remoto
+```
+
+### Editar el último commit
+```bash
+git commit --amend                  # Editar mensaje del último commit
+git commit --amend -m "Nuevo mensaje"
+git commit --amend --no-edit        # Agregar cambios al último commit sin cambiar el mensaje
+```
+
+---
 
 ## 🌿 Manejo de ramas
 
 ### Crear y cambiar ramas
 ```bash
-git branch <nombre_rama>             # Crear rama
-git checkout -b <nombre_rama>        # Crear y cambiar en un paso
+git switch <nombre_rama>                # Cambiar a una rama existente (Git >= 2.23, recomendado)
+git switch -c <nombre_rama>             # Crear y cambiar en un paso
+git switch -c <nombre_rama> <hash>      # Crear rama desde un commit específico
+git checkout <nombre_rama>              # Alternativa tradicional (Git < 2.23)
+git checkout -b <nombre_rama>           # Alternativa tradicional: crear y cambiar
 ```
 
 ### Listar ramas
 ```bash
-git branch          # Solo locales
-git branch -a       # Locales y remotas
-git branch -r       # Solo remotas
+git branch                          # Solo locales
+git branch -a                       # Locales y remotas
+git branch -r                       # Solo remotas
 ```
 
 ### Eliminar ramas
 ```bash
-git branch -d <nombre_rama>          # Eliminar rama local
+git branch -d <nombre_rama>         # Eliminar rama local (solo si ya fue mergeada)
+git branch -D <nombre_rama>         # Forzar eliminación de rama local
 ```
 
-### Actualizar rama sin moverse
+### Renombrar rama
 ```bash
-git fetch origin qa:qa               # Actualizar rama qa desde remoto
+git branch -m <nombre_nuevo>                    # Renombrar la rama actual
+git branch -m <nombre_viejo> <nombre_nuevo>     # Renombrar cualquier rama local
 ```
 
-## 🔄 Merge y integración
+### Actualizar rama remota sin moverse
+```bash
+git fetch origin qa:qa              # Actualizar rama qa local desde el remoto
+```
+
+---
+
+## 🔄 Merge e integración
 
 ### Proceso de merge típico
 ```bash
-git checkout dev
+git switch dev
 git pull origin dev
-git checkout <rama_feature>
+git switch <rama_feature>
 git merge dev
-git push origin dev
+git push origin <rama_feature>
 ```
 
-### Cancelar merge
+### Cancelar merge en proceso
 ```bash
-git merge --abort                    # Cancelar merge en proceso
+git merge --abort
 ```
 
-## ⏪ Deshacer cambios
-
-### Revertir commits
-```bash
-git revert <id-del-commit>                  # Revertir un commit
-git reset --soft HEAD~1              		# Deshacer último commit (mantiene cambios)
-git checkout <commit-hash> -- <archivo>  	# Revertir archivo específico
-git reset --hard origin/main				# Descartar commits locales
-```
-
-### Editar commits
-```bash
-git commit --amend                      # Editar mensaje del último commit
-git commit --amend -m "First commit"
-git commit --amend --no-edit            # Fusiona los cambios con el commit anterior
-```
+---
 
 ## 🍒 Cherry-pick
 
-### Traer commits específicos
+### Traer commits específicos a la rama actual
 ```bash
 git cherry-pick <hash-commit>
-git cherry-pick <commit1> <commit2> <commit3>    # Múltiples commits
-git cherry-pick <inicio>^..<fin>                 # Rango de commits
-git cherry-pick --no-commit <hash>               # Sin commit automático
+git cherry-pick <commit1> <commit2> <commit3>   # Múltiples commits
+git cherry-pick <inicio>^..<fin>                # Rango de commits (inclusivo)
+git cherry-pick --no-commit <hash>              # Aplica cambios sin hacer commit automático
 ```
 
 ### Resolver conflictos en cherry-pick
@@ -206,23 +241,49 @@ git add .
 git cherry-pick --continue
 ```
 
-## 💾 Stash (cambios temporales)
+---
 
-### Operaciones básicas
+## 🌐 Remotos
+
+### Consultar remotos
 ```bash
-git stash                    # Guardar cambios temporalmente
-git stash pop               # Restaurar y eliminar del stash
-git stash apply             # Aplicar sin eliminar del stash
+git remote -v                               # Ver remotos configurados
 ```
 
-### Gestión avanzada
+### Descargar cambios
 ```bash
-git stash list                      # Listar todos los stashes
-git stash show <stash_name>         # Ver contenido de un stash
-git stash drop <stash_name>         # Eliminar stash específico
-git stash clear                     # Eliminar TODOS los stashes
-git stash show -p stash@{0}         # Ver los cambios del stash más reciente (stash@{0})
-git stash show stash@{0}            # Resumen de archivos del stash más reciente
+git fetch origin                            # Descarga cambios sin aplicarlos
+git pull origin <rama>                      # Descarga y aplica cambios
+git pull --rebase origin <rama>             # Pull con rebase en lugar de merge
+```
+
+### Subir cambios
+```bash
+git push origin <rama>
+git push -u origin <rama>                   # Sube y establece tracking con el remoto
+git push --force-with-lease origin <rama>   # Push forzado seguro (falla si alguien más subió cambios)
+```
+
+---
+
+## 🏷️ Tags
+
+> 💡 Los tags marcan commits específicos como versiones de release (ej: `v1.0.0`). En muchos equipos esto lo gestiona automáticamente el pipeline de CI/CD o el tech lead, por lo que puede que nunca necesites usarlos manualmente.
+
+### Crear y listar tags
+```bash
+git tag                             # Listar todos los tags
+git tag <nombre>                    # Crear tag ligero en el commit actual
+git tag -a <nombre> -m "mensaje"    # Crear tag anotado con mensaje
+git tag -a <nombre> <commit-hash>   # Crear tag en un commit específico
+```
+
+### Publicar y eliminar tags
+```bash
+git push origin <nombre-tag>        # Publicar un tag específico al remoto
+git push origin --tags              # Publicar todos los tags al remoto
+git tag -d <nombre-tag>             # Eliminar tag local
+git push origin --delete <nombre-tag> # Eliminar tag del remoto
 ```
 
 ---
