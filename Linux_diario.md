@@ -149,3 +149,11 @@ La **Opción 1 con `/dev/tcp`** es la más directa porque solo depende de `bash`
 | `openssl rand -hex 16`             | 16    | 128  | Hexadecimal            | `9f1c2e7a4b8d6c3e5f9a1b2c3d4e5f6a`                                 | API keys simples                                          |
 | `openssl rand -hex 32`             | 32    | 256  | Hexadecimal            | `a3f9c2e7b4d8c6e1f0a9b2c3d4e5f6a7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3` | API keys seguras                                          |
 | `openssl rand -base64 32`          | 32    | 256  | Base64                 | `q83Jk2l9ZkP1v8sL0xYwTQeR7uH3aB6c9dEfGhIjKlM=`                     | Tokens seguros (requiere manejo de caracteres especiales) |
+
+
+## Usar otra version de java
+```bash
+export JAVA_HOME=/path/to/java-17
+export PATH=$JAVA_HOME/bin:$PATH
+mvn clean install
+```
