@@ -106,6 +106,9 @@ git stash clear                 # Eliminar TODOS los stashes
 ### Ver historial
 ```bash
 git log --oneline --graph
+git log --oneline --name-only                   # Muestra el ID del commit, el título y justo debajo la lista de archivos
+git log --oneline --name-status                 # Que archivo se tocó, y qué se le hizo (M = Modificado, A = Añadido, D = Eliminado)
+git log --name-only                             # Si necesitas saber quién lo hizo y cuándo, pero manteniendo solo la lista de archivos
 git log --follow <archivo>                      # Sigue renombres/movimientos del archivo
 git log --author="nombre_autor"
 git log --author="nombre" --pretty=format:"%h - %s"
