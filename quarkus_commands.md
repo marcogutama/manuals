@@ -14,7 +14,29 @@ Quarkus command-line interface (CLI) and Maven commands provide essential tools 
 | **List all extensions** | `./mvnw quarkus:list-extensions` | `quarkus ext list` |
 | **Update Quarkus version** | `./mvnw quarkus:update` | `quarkus update` |
 
-Ejemplo: quarkus create app ec.fin.baustro:servicing-appsecuritymgmt --extension quarkus-rest --no-code
+Ejemplo: `quarkus create app ec.fin.baustro:servicing-appsecuritymgmt --extension quarkus-rest --no-code`
+
+### ⚠️ Convención de nombres para el artifactId
+
+Según la convención oficial de Maven, el `artifactId` debe seguir estas reglas:
+
+| Regla | Correcto ✅ | Incorrecto ❌ |
+| --- | --- | --- |
+| Solo minúsculas | `whatsapp-delivery-consumer` | `WhatsAppDeliveryConsumer` |
+| Palabras separadas por guiones (`-`) | `user-management-service` | `userManagementService` |
+| Sin guiones bajos | `payment-gateway` | `payment_gateway` |
+| Sin versiones en el nombre | `report-generator` | `report-generator-v2` |
+
+> **Nota:** El `artifactId` se convierte en el nombre del JAR generado y del directorio del proyecto.
+> El nombre en PascalCase/camelCase se reserva para las **clases Java** dentro del proyecto.
+>
+> ```bash
+> # ❌ Evitar
+> quarkus create app ec.fin.baustro:WhatsAppDeliveryConsumer --extension quarkus-rest --no-code
+>
+> # ✅ Correcto
+> quarkus create app ec.fin.baustro:whatsapp-delivery-consumer --extension quarkus-rest --no-code
+> ```
 
 ---
 
