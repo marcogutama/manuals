@@ -61,4 +61,10 @@ Según la convención oficial de Maven, el `artifactId` debe seguir estas reglas
 
 ---
 
+### 4. Generar Uber-JAR (todo en uno)
+Genera un único JAR en target/ con todo incluido.
+```
+./mvnw package -Dquarkus.package.jar.type=uber-jar
+```
+
 > For more detailed guides and documentation, refer to the official [Quarkus website](https://quarkus.io).
