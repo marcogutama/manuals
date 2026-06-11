@@ -582,20 +582,23 @@ ec.fin.baustro.servicio
 
 ## 14. Nomenclatura y Convenciones de Código
 
+- **Idioma de clases:** Todos los nombres de clases, interfaces, records y enums deben ser redactados en **inglés** obligatoriamente (ej. `ResourceNotFoundException`, `BridgeNotificationClient`). Los comentarios, Javadocs y mensajes de error orientados al usuario final o logs de negocio locales pueden permanecer en español.
+
 | Elemento | Convención | Ejemplo |
 |---|---|---|
-| Clases | `PascalCase` | `ProductoService` |
-| Métodos y variables | `camelCase` | `obtenerProducto` |
-| Constantes | `UPPER_SNAKE_CASE` | `MAX_REINTENTOS` |
+| Clases | `PascalCase` | `ProductService` |
+| Métodos y variables | `camelCase` | `getProduct` |
+| Constantes | `UPPER_SNAKE_CASE` | `MAX_RETRIES` |
 | Paquetes | `lowercase` | `ec.fin.baustro.api` |
-| Endpoints REST | `kebab-case` en plural | `/api/v1/productos`, `/api/v1/ordenes-compra` |
+| Endpoints REST | `kebab-case` en plural | `/api/v1/products`, `/api/v1/purchase-orders` |
 | Variables de entorno | `UPPER_SNAKE_CASE` | `DB_PASSWORD`, `API_KEY` |
-| Excepciones de dominio | `PascalCase` + sufijo `Exception` | `RecursoNoEncontradoException` |
-| ExceptionMappers | mismo nombre + sufijo `Mapper` | `RecursoNoEncontradoExceptionMapper` |
+| Excepciones de dominio | `PascalCase` + sufijo `Exception` | `ResourceNotFoundException` |
+| ExceptionMappers | mismo nombre + sufijo `Mapper` | `ResourceNotFoundExceptionMapper` |
 | Clases utilitarias | `PascalCase` + sufijo `Utils` | `StringUtils`, `DateUtils` |
-| Enums de dominio | `PascalCase` singular | `NotificationChannel`, `EstadoNotificacion` |
-| Tests de servicio | sufijo `Test` | `ProductoServiceTest` |
-| Tests de integración REST | sufijo `IT` | `ProductoResourceIT` |
+| Enums de dominio | `PascalCase` singular | `NotificationChannel`, `NotificationStatus` |
+| Tests de servicio | sufijo `Test` | `ProductServiceTest` |
+| Tests de integración REST | sufijo `IT` | `ProductResourceIT` |
+
 
 ---
 
