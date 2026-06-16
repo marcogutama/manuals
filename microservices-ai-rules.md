@@ -55,7 +55,7 @@ Con `quarkus-rest` (RESTEasy Reactive), los recursos JAX-RS **no deben declarar 
 
 **Correcto:**
 ```java
-@Path("/api/v1/productos")
+@Path("/v1/productos")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class ProductoResource {
@@ -70,7 +70,7 @@ public class ProductoResource {
 
 **Incorrecto:**
 ```java
-@Path("/api/v1/productos")
+@Path("/v1/productos")
 @ApplicationScoped  // ❌ rompe @Valid en RESTEasy Reactive
 public class ProductoResource { ... }
 ```
@@ -102,16 +102,18 @@ private Long id;
 ### 4.2 Documentación de Endpoints
 
 - Cada endpoint debe estar anotado con `@Operation`, incluyendo `summary` y `description`.
-- Los posibles códigos de respuesta deben documentarse con `@APIResponse`.
+- Los posibles códigos de respuesta deben documentarse con `@APIResponse`, incluyendo todos los códigos que el endpoint puede retornar.
 
 ```java
 @Operation(
-    summary = "Obtener producto por ID",
-    description = "Retorna el detalle de un producto dado su identificador único."
+    summary = "Iniciar entrega de notificación",
+    description = "Inicia de forma síncrona el proceso de entrega de una notificación. Retorna el resultado del proveedor."
 )
-@APIResponse(responseCode = "200", description = "Producto encontrado")
-@APIResponse(responseCode = "404", description = "Producto no encontrado")
-public Uni<ProductoDTO> obtenerProducto(@PathParam("id") Long id) { ... }
+@APIResponse(responseCode = "202", description = "Entrega aceptada por el proveedor")
+@APIResponse(responseCode = "400", description = "Petición inválida o error en validación de campos")
+@APIResponse(responseCode = "404", description = "Notificación no encontrada")
+@APIResponse(responseCode = "422", description = "La notificación existe pero el proveedor no pudo procesarla")
+public Uni<Response> createDelivery(@Valid DeliveryRequest request) { ... }
 ```
 
 ---
@@ -329,42 +331,44 @@ Todo proyecto debe incluir las siguientes dependencias de prueba:
 
 Todo endpoint nuevo debe tener al menos tres tests de integración:
 
-- **Flujo feliz:** verifica `200` con el body esperado.
+- **Flujo feliz:** verifica el código 2xx apropiado (`200`, `201`, `202`) con el body esperado.
 - **Validación fallida:** verifica `400` con el `ValidationExceptionMapper` activo (campo obligatorio ausente).
 - **Recurso no encontrado:** verifica `404` con el body del `ExceptionMapper` de dominio.
 
 ```java
 @QuarkusTest
-class ProductoResourceIT {
+class WhatsappDeliveryResourceIT {
 
     @Test
-    @DisplayName("Debe responder 200 al consultar un producto existente")
-    void shouldReturn200WhenProductExists() {
-        // Arrange / Act / Assert
+    @DisplayName("Debe responder 202 al aceptar la entrega de una notificación existente")
+    void shouldReturn202WhenDeliveryIsAccepted() {
         given()
-            .when().get("/api/v1/productos/1")
+            .contentType(ContentType.JSON)
+            .body("{\"notificationId\": 1}")
+            .when().post("/v1/whatsapp/deliveries")
             .then()
-            .statusCode(200)
-            .body("nombre", equalTo("Laptop Pro"));
+            .statusCode(202);
     }
 
     @Test
-    @DisplayName("Debe retornar 400 con detalle de violaciones cuando falta el campo nombre")
-    void shouldReturn400WhenNombreIsMissing() {
+    @DisplayName("Debe retornar 400 cuando el campo notificationId está ausente")
+    void shouldReturn400WhenNotificationIdIsMissing() {
         given()
             .contentType(ContentType.JSON)
             .body("{}")
-            .when().post("/api/v1/productos")
+            .when().post("/v1/whatsapp/deliveries")
             .then()
             .statusCode(400)
-            .body("violations.field", hasItem("nombre"));
+            .body("violations.field", hasItem("notificationId"));
     }
 
     @Test
-    @DisplayName("Debe retornar 404 cuando el producto no existe")
-    void shouldReturn404WhenProductDoesNotExist() {
+    @DisplayName("Debe retornar 404 cuando la notificación no existe")
+    void shouldReturn404WhenNotificationDoesNotExist() {
         given()
-            .when().get("/api/v1/productos/9999")
+            .contentType(ContentType.JSON)
+            .body("{\"notificationId\": 9999}")
+            .when().post("/v1/whatsapp/deliveries")
             .then()
             .statusCode(404)
             .body("status", equalTo(404));
@@ -580,7 +584,149 @@ ec.fin.baustro.servicio
 
 ---
 
-## 14. Nomenclatura y Convenciones de Código
+## 14. Diseño de API REST
+
+### 14.1 Estructura de rutas — recursos, no acciones
+
+Los endpoints deben representar **recursos** (sustantivos en plural), no acciones. El verbo HTTP ya comunica la intención; incluir verbos de acción en la ruta es una violación de los principios REST.
+
+**Correcto:**
+```
+POST /v1/whatsapp/deliveries      # crea/inicia una entrega
+POST /v1/sms/deliveries
+POST /v1/email/deliveries
+GET  /v1/whatsapp/deliveries/{id} # consulta el estado de una entrega
+```
+
+**Incorrecto:**
+```
+POST /v1/whatsapp/send      # ❌ verbo de acción en la ruta
+POST /v1/sms/sendMessage    # ❌ verbo de acción en la ruta
+POST /v1/notifications/process  # ❌ verbo de acción en la ruta
+```
+
+### 14.2 Prefijo `/api` — omitir en microservicios dedicados
+
+**Prohibido** incluir el prefijo `/api` en las rutas de microservicios. El prefijo tiene sentido únicamente en monolitos donde coexisten rutas de páginas web y endpoints REST en el mismo servidor, para diferenciar `/web/...` de `/api/...`. En un microservicio dedicado es ruido que no aporta información.
+
+```
+# Correcto — microservicio dedicado
+/v1/whatsapp/deliveries
+
+# Incorrecto — prefijo redundante en microservicio
+/api/v1/whatsapp/deliveries   # ❌
+```
+
+### 14.3 Namespacing por canal o dominio
+
+Cuando un servicio agrupa recursos de varios canales o subdominios, usar el canal/subdominio como primer segmento de ruta antes del recurso. Esto crea un namespace claro y permite extender la API sin colisiones.
+
+```
+/v1/whatsapp/deliveries
+/v1/sms/deliveries
+/v1/email/deliveries
+```
+
+Este patrón es preferible a aplanar el canal en el nombre del recurso (`/v1/whatsapp-deliveries`), ya que mantiene los segmentos separados y facilita la adición de recursos futuros como `/v1/whatsapp/templates` o `/v1/whatsapp/status`.
+
+### 14.4 Nombres de campos en el contrato JSON
+
+Los nombres de campos del contrato JSON deben ser **semánticos y autodescriptivos** en `camelCase`. **Prohibido** exponer convenciones internas de base de datos (prefijos de columna como `c`, `t`, `n`) en el contrato de la API.
+
+**Correcto:**
+```json
+{ "notificationId": 13 }
+```
+
+**Incorrecto:**
+```json
+{ "cnotificacion": 13 }   // ❌ prefijo de columna expuesto en el contrato
+{ "c_notificacion": 13 }  // ❌ snake_case con prefijo de BD
+```
+
+El mapeo entre el nombre del campo JSON y el nombre de la columna de base de datos debe realizarse en la capa de infraestructura, nunca exponiendo la convención interna al consumidor de la API.
+
+```java
+// Correcto — el @JsonProperty mapea el contrato externo al nombre interno
+public record DeliveryRequest(
+    @NotNull(message = "El campo notificationId es requerido")
+    @Schema(description = "Identificador de la notificación a entregar", examples = {"13", "42"})
+    @JsonProperty("notificationId")
+    Long notificationId
+) {}
+```
+
+### 14.5 Consistencia entre microservicios del mismo dominio
+
+Los microservicios que comparten el mismo contrato de entrada y el mismo propósito funcional (workers de entrega de notificaciones, por ejemplo) deben exponer **exactamente el mismo patrón de ruta y la misma estructura de request/response**. Esto garantiza que el orquestador upstream los pueda tratar de forma uniforme y que un desarrollador que conozca uno entienda los demás sin esfuerzo adicional.
+
+| Microservicio | Endpoint REST | Cola asíncrona |
+|---|---|---|
+| WhatsAppDeliveryWorker | `POST /v1/whatsapp/deliveries` | `whatsapp-in` |
+| SmsDeliveryWorker | `POST /v1/sms/deliveries` | `sms-in` |
+| EmailDeliveryWorker | `POST /v1/email/deliveries` | `email-in` |
+
+---
+
+## 15. Códigos de Respuesta HTTP Semánticos
+
+El uso correcto de los códigos HTTP es parte del contrato de la API. Retornar `200 OK` para todas las respuestas exitosas es incorrecto y priva al consumidor de información semántica relevante.
+
+### 15.1 Tabla de referencia por operación
+
+| Operación | Situación | Código correcto |
+|---|---|---|
+| `GET` | Recurso encontrado | `200 OK` |
+| `GET` | Recurso no encontrado | `404 Not Found` |
+| `POST` | Recurso creado y persistido | `201 Created` |
+| `POST` | Proceso iniciado / aceptado por proveedor externo | `202 Accepted` |
+| `POST` | Request válida, pero el proveedor no puede procesarla | `422 Unprocessable Entity` |
+| `PUT` / `PATCH` | Recurso actualizado | `200 OK` |
+| `DELETE` | Recurso eliminado | `204 No Content` |
+| Cualquiera | Campos inválidos o ausentes | `400 Bad Request` |
+| Cualquiera | No autenticado | `401 Unauthorized` |
+| Cualquiera | Autenticado pero sin permisos | `403 Forbidden` |
+| Cualquiera | Error interno del servidor | `500 Internal Server Error` |
+
+### 15.2 Distinción entre 400 y 422
+
+- `400 Bad Request` — la petición está mal formada: campo obligatorio ausente, tipo de dato incorrecto, JSON inválido. La validación falla **antes** de intentar procesar el negocio.
+- `422 Unprocessable Entity` — la petición es estructuralmente válida y los campos pasan la validación, pero la **lógica de negocio o un sistema externo** no puede procesarla. Ejemplo: la notificación existe en base de datos, pero el proveedor de WhatsApp rechaza el envío.
+
+### 15.3 Uso de 202 Accepted en workers de entrega
+
+Los microservicios de tipo delivery worker (WhatsApp, SMS, Email) deben retornar `202 Accepted` cuando el proveedor externo acepta el mensaje para procesamiento, **no** `200 OK`. El `202` comunica con precisión que "el mensaje fue recibido y delegado, pero la entrega final no está garantizada en este instante".
+
+```java
+// Correcto
+return service.sendSync(request.notificationId())
+    .map(response -> {
+        if (response.accepted()) {
+            return Response.accepted(response).build();          // 202
+        } else {
+            return Response.status(422).entity(response).build(); // 422
+        }
+    });
+
+// Incorrecto
+return Response.ok(response).build(); // ❌ 200 para toda situación
+```
+
+### 15.4 Incluir Location header en 201 Created
+
+Cuando el endpoint crea un recurso persistido y retorna `201 Created`, debe incluir el header `Location` apuntando al URI del recurso recién creado.
+
+```java
+URI location = uriInfo.getAbsolutePathBuilder()
+    .path(String.valueOf(recurso.getId()))
+    .build();
+
+return Response.created(location).entity(recurso).build();
+```
+
+---
+
+## 16. Nomenclatura y Convenciones de Código
 
 - **Idioma de clases:** Todos los nombres de clases, interfaces, records y enums deben ser redactados en **inglés** obligatoriamente (ej. `ResourceNotFoundException`, `BridgeNotificationClient`). Los comentarios, Javadocs y mensajes de error orientados al usuario final o logs de negocio locales pueden permanecer en español.
 
@@ -590,7 +736,8 @@ ec.fin.baustro.servicio
 | Métodos y variables | `camelCase` | `getProduct` |
 | Constantes | `UPPER_SNAKE_CASE` | `MAX_RETRIES` |
 | Paquetes | `lowercase` | `ec.fin.baustro.api` |
-| Endpoints REST | `kebab-case` en plural | `/api/v1/products`, `/api/v1/purchase-orders` |
+| Endpoints REST — segmentos de ruta | `kebab-case` en plural, sin prefijo `/api` | `/v1/products`, `/v1/purchase-orders`, `/v1/whatsapp/deliveries` |
+| Campos JSON de contrato de API | `camelCase` semántico, sin prefijos de BD | `notificationId`, `purchaseOrderId` |
 | Variables de entorno | `UPPER_SNAKE_CASE` | `DB_PASSWORD`, `API_KEY` |
 | Excepciones de dominio | `PascalCase` + sufijo `Exception` | `ResourceNotFoundException` |
 | ExceptionMappers | mismo nombre + sufijo `Mapper` | `ResourceNotFoundExceptionMapper` |
@@ -599,10 +746,9 @@ ec.fin.baustro.servicio
 | Tests de servicio | sufijo `Test` | `ProductServiceTest` |
 | Tests de integración REST | sufijo `IT` | `ProductResourceIT` |
 
-
 ---
 
-## 15. Seguridad
+## 17. Seguridad
 
 - Validar **todas** las entradas del cliente con Bean Validation (`@NotNull`, `@Size`, `@Pattern`, etc.).
 - Nunca registrar en logs datos sensibles: contraseñas, tokens, PII.
@@ -612,7 +758,7 @@ ec.fin.baustro.servicio
 
 ---
 
-## 16. Logging
+## 18. Logging
 
 - Usar el mecanismo idiomático de Quarkus según la versión del proyecto:
   - **Quarkus 3.x (recomendado):** anotación `@io.quarkus.logging.Log` — el compilador genera el logger estático automáticamente.
@@ -654,21 +800,22 @@ LOG.errorf(e, "Error al obtener el producto con ID: %d", id);
 
 ---
 
-## 17. Versionado de API
+## 19. Versionado de API
 
-- Versionar los endpoints desde la primera publicación: `/api/v1/...`
+- Versionar los endpoints desde la primera publicación usando el segmento `/v1/` directamente en la raíz de la ruta, **sin prefijo `/api`**: `/v1/productos`, `/v1/whatsapp/deliveries`.
 - Nunca eliminar ni romper contratos de versiones activas; deprecar antes de eliminar.
 - Indicar la deprecación con `@Deprecated` en el código y en la anotación OpenAPI correspondiente.
+- Al introducir una versión nueva (`/v2/...`), mantener la versión anterior activa durante un periodo de transición acordado con los consumidores.
 
 ---
 
-## 18. Comunicación entre Microservicios
+## 20. Comunicación entre Microservicios
 
 - Usar clientes REST tipados (`@RegisterRestClient`) para comunicación síncrona.
-- Para comunicación asíncrona, preferir mensajería (Kafka, RabbitMQ) sobre llamadas directas.
+- Para comunicación asíncrona, preferir mensajería (Kafka, RabbitMQ, AMQ) sobre llamadas directas.
 - Implementar `@CircuitBreaker`, `@Retry` y `@Timeout` en todos los clientes externos para resiliencia.
 
-### 18.1 Externalizar parámetros de resiliencia en properties
+### 20.1 Externalizar parámetros de resiliencia en properties
 
 **Prohibido** hardcodear los valores de `@Retry`, `@CircuitBreaker` y `@Timeout` directamente en las anotaciones. Deben externalizarse en `application.properties` para poder ajustarse sin recompilar.
 
@@ -697,6 +844,6 @@ ec.fin.baustro.client.DispatchClient/Timeout/value=${DISPATCH_TIMEOUT_MS:5000}
 
 Los valores de las variables de entorno deben seguir la convención de secretos de la sección 11.
 
-### 18.2 Propagación de ID de correlación
+### 20.2 Propagación de ID de correlación
 
 Propagar un ID de correlación entre microservicios mediante el header `X-Request-ID` en todas las llamadas inter-servicio. En ausencia de OpenTelemetry, incluirlo manualmente en los clientes REST registrados. Los logs deben incluir este ID como contexto en cada entrada relevante.
