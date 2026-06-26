@@ -301,7 +301,7 @@ Todo proyecto debe incluir las siguientes dependencias de prueba:
 <!-- Mocks dentro del contexto CDI de Quarkus -->
 <dependency>
     <groupId>io.quarkus</groupId>
-    <artifactId>quarkus-junit5-mockito</artifactId>
+    <artifactId>quarkus-junit-mockito</artifactId>
     <scope>test</scope>
 </dependency>
 
@@ -317,7 +317,7 @@ Todo proyecto debe incluir las siguientes dependencias de prueba:
 
 ### 10.2 Anotación obligatoria: @QuarkusTest
 
-**Todas** las clases de prueba deben anotarse con `@QuarkusTest`. Para mocks, usar `@InjectMock` (de `quarkus-junit5-mockito`) ya que opera dentro del contexto CDI de Quarkus.
+**Todas** las clases de prueba deben anotarse con `@QuarkusTest`. Para mocks, usar `@InjectMock` (de `quarkus-junit-mockito`) ya que opera dentro del contexto CDI de Quarkus.
 
 ### 10.3 Estrategia por tipo de clase
 
@@ -331,47 +331,49 @@ Todo proyecto debe incluir las siguientes dependencias de prueba:
 
 Todo endpoint nuevo debe tener al menos tres tests de integración:
 
-- **Flujo feliz:** verifica el código 2xx apropiado (`200`, `201`, `202`) con el body esperado.
-- **Validación fallida:** verifica `400` con el `ValidationExceptionMapper` activo (campo obligatorio ausente).
-- **Recurso no encontrado:** verifica `404` con el body del `ExceptionMapper` de dominio.
+- **Flujo feliz:** verifica el código 2xx apropiado (`200`, `201`, `202`) con el body esperado, incluyendo `codRespuesta: "000"`.
+- **Validación fallida:** verifica `400` con la estructura unificada (`codRespuesta: "100"` y array `violations`).
+- **Recurso no encontrado:** verifica `404` con el body del `ExceptionMapper` de dominio y su `codRespuesta` correspondiente.
 
 ```java
 @QuarkusTest
-class WhatsappDeliveryResourceIT {
+class ProductoResourceIT {
 
     @Test
-    @DisplayName("Debe responder 202 al aceptar la entrega de una notificación existente")
-    void shouldReturn202WhenDeliveryIsAccepted() {
+    @DisplayName("Debe responder 200 con codRespuesta 000 en el flujo exitoso")
+    void shouldReturn200WithCodRespuesta000() {
         given()
             .contentType(ContentType.JSON)
-            .body("{\"notificationId\": 1}")
-            .when().post("/v1/whatsapp/deliveries")
+            .body("{\"nombre\": \"Laptop Pro\"}")
+            .when().post("/v1/productos")
             .then()
-            .statusCode(202);
+            .statusCode(200)
+            .body("codRespuesta", equalTo("000"))
+            .body("data", notNullValue());
     }
 
     @Test
-    @DisplayName("Debe retornar 400 cuando el campo notificationId está ausente")
-    void shouldReturn400WhenNotificationIdIsMissing() {
+    @DisplayName("Debe retornar 400 con codRespuesta 100 y violations cuando el campo es inválido")
+    void shouldReturn400WithViolationsWhenFieldInvalid() {
         given()
             .contentType(ContentType.JSON)
             .body("{}")
-            .when().post("/v1/whatsapp/deliveries")
+            .when().post("/v1/productos")
             .then()
             .statusCode(400)
-            .body("violations.field", hasItem("notificationId"));
+            .body("codRespuesta", equalTo("100"))
+            .body("violations.field", hasItem("nombre"));
     }
 
     @Test
-    @DisplayName("Debe retornar 404 cuando la notificación no existe")
-    void shouldReturn404WhenNotificationDoesNotExist() {
+    @DisplayName("Debe retornar 404 con codRespuesta de dominio cuando el recurso no existe")
+    void shouldReturn404WhenResourceDoesNotExist() {
         given()
-            .contentType(ContentType.JSON)
-            .body("{\"notificationId\": 9999}")
-            .when().post("/v1/whatsapp/deliveries")
+            .when().get("/v1/productos/9999")
             .then()
             .statusCode(404)
-            .body("status", equalTo(404));
+            .body("codRespuesta", notNullValue())
+            .body("msgUsuario", notNullValue());
     }
 }
 ```
@@ -459,77 +461,71 @@ public class RecursoNoEncontradoException extends RuntimeException {
 throw new NotFoundException("Producto no encontrado");  // ❌
 ```
 
-### 12.2 ExceptionMappers
+### 12.2 GlobalExceptionMapper — mapper unificado
 
-Cada excepción de dominio debe tener su `ExceptionMapper` registrado con `@Provider`. El mapper es el **único punto** que conoce JAX-RS y traduce a HTTP.
+**Un único** `GlobalExceptionMapper` implementando `ExceptionMapper<RuntimeException>` centraliza el manejo de todos los errores. Esto es preferible a tener un mapper por excepción cuando el proyecto maneja más de dos o tres tipos de error, ya que evita la proliferación de clases y mantiene toda la lógica de traducción en un solo lugar visible.
+
+El mapper es el **único punto** que conoce JAX-RS y traduce a HTTP. Las capas de servicio y cliente nunca deben conocer `Response` ni códigos HTTP.
 
 ```java
 @Provider
-public class RecursoNoEncontradoExceptionMapper
-        implements ExceptionMapper<RecursoNoEncontradoException> {
+public class GlobalExceptionMapper implements ExceptionMapper<RuntimeException> {
 
     @Override
-    public Response toResponse(RecursoNoEncontradoException e) {
-        return Response.status(Response.Status.NOT_FOUND)
-                .type(MediaType.APPLICATION_JSON)
-                .entity(Map.of(
-                        "status", 404,
-                        "error", "Not Found",
-                        "message", e.getMessage()))
+    public Response toResponse(RuntimeException exception) {
+
+        if (exception instanceof ConstraintViolationException cve) {
+            Log.warnf("Violaciones de validación: %s", cve.getMessage());
+            List<ApiResponse.Violation> violations = cve.getConstraintViolations().stream()
+                    .map(cv -> {
+                        String rawPath = cv.getPropertyPath().toString();
+                        String field = rawPath.contains(".")
+                                ? rawPath.substring(rawPath.indexOf('.') + 1)
+                                : rawPath;
+                        return new ApiResponse.Violation(field, cv.getMessage());
+                    })
+                    .toList();
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(ApiResponse.validationError("Constraint Violation", violations))
+                    .build();
+        }
+
+        if (exception instanceof RecursoNoEncontradoException) {
+            Log.warnf("Recurso no encontrado: %s", exception.getMessage());
+            return buildResponse(Response.Status.NOT_FOUND,
+                    "Recurso no encontrado", exception.getMessage(), "200");
+        }
+
+        Log.errorf(exception, "Error inesperado");
+        return buildResponse(Response.Status.INTERNAL_SERVER_ERROR,
+                "Ha ocurrido un error inesperado. Por favor, póngase en contacto con el soporte técnico.",
+                exception.getMessage() != null ? exception.getMessage() : "Error inesperado en el sistema",
+                "900");
+    }
+
+    private Response buildResponse(Response.Status status, String msgUsuario,
+                                   String msgTecnico, String codRespuesta) {
+        return Response.status(status)
+                .entity(ApiResponse.error(msgUsuario, msgTecnico, codRespuesta))
                 .build();
     }
 }
 ```
 
-### 12.3 ValidationExceptionMapper obligatorio
+> **Nota:** el caso `ConstraintViolationException` debe ir **primero** en el mapper, antes de cualquier otro `instanceof`, para que tome precedencia sobre el handler automático de Quarkus.
 
-Todo proyecto debe registrar un `ValidationExceptionMapper` para `ConstraintViolationException`. Sin él, las violaciones de `@Valid` devuelven `400` con cuerpo vacío o texto plano.
+### 12.3 Prioridad del GlobalExceptionMapper sobre el handler de Quarkus
 
-```java
-@Provider
-public class ValidationExceptionMapper implements ExceptionMapper<ConstraintViolationException> {
+Por defecto, Quarkus tiene su propio handler para `ConstraintViolationException` que produce una respuesta con estructura propia. Para garantizar que `GlobalExceptionMapper` tenga precedencia, agregar en `application.properties`:
 
-    @Override
-    public Response toResponse(ConstraintViolationException e) {
-        List<Map<String, String>> violations = e.getConstraintViolations().stream()
-                .map(v -> {
-                    String path = v.getPropertyPath().toString();
-                    String field = path.contains(".")
-                            ? path.substring(path.lastIndexOf('.') + 1) : path;
-                    return Map.of("field", field, "message", v.getMessage());
-                }).toList();
-
-        return Response.status(Response.Status.BAD_REQUEST)
-                .type(MediaType.APPLICATION_JSON)
-                .entity(Map.of("status", 400, "error", "Bad Request", "violations", violations))
-                .build();
-    }
-}
+```properties
+# Desactiva el handler automático de Quarkus para ConstraintViolationException
+quarkus.hibernate-validator.fail-fast=false
 ```
 
-### 12.4 Estructura uniforme de respuestas de error
+### 12.4 No propagar excepciones técnicas al cliente
 
-```json
-{
-  "status": 404,
-  "error": "Not Found",
-  "message": "El producto con ID 42 no existe."
-}
-```
-
-Para errores de validación:
-
-```json
-{
-  "status": 400,
-  "error": "Bad Request",
-  "violations": [
-    { "field": "nombre", "message": "Field 'nombre' is required." }
-  ]
-}
-```
-
-No propagar excepciones técnicas (`SQLException`, `NullPointerException`) hacia el cliente.
+`SQLException`, `NullPointerException`, stack traces y mensajes internos de la JVM **nunca** deben llegar al cuerpo de la respuesta. El `GlobalExceptionMapper` debe capturarlos en el caso `else` genérico y devolver siempre el mensaje neutro con `codRespuesta: "900"`.
 
 ---
 
@@ -607,7 +603,7 @@ POST /v1/notifications/process  # ❌ verbo de acción en la ruta
 
 ### 14.2 Prefijo `/api` — omitir en microservicios dedicados
 
-**Prohibido** incluir el prefijo `/api` en las rutas de microservicios. El prefijo tiene sentido únicamente en monolitos donde coexisten rutas de páginas web y endpoints REST en el mismo servidor, para diferenciar `/web/...` de `/api/...`. En un microservicio dedicado es ruido que no aporta información.
+**Prohibido** incluir el prefijo `/api` en las rutas de microservicios. El prefijo tiene sentido únicamente en monolitos donde coexisten rutas de páginas web y endpoints REST en el mismo servidor. En un microservicio dedicado es ruido que no aporta información.
 
 ```
 # Correcto — microservicio dedicado
@@ -627,8 +623,6 @@ Cuando un servicio agrupa recursos de varios canales o subdominios, usar el cana
 /v1/email/deliveries
 ```
 
-Este patrón es preferible a aplanar el canal en el nombre del recurso (`/v1/whatsapp-deliveries`), ya que mantiene los segmentos separados y facilita la adición de recursos futuros como `/v1/whatsapp/templates` o `/v1/whatsapp/status`.
-
 ### 14.4 Nombres de campos en el contrato JSON
 
 Los nombres de campos del contrato JSON deben ser **semánticos y autodescriptivos** en `camelCase`. **Prohibido** exponer convenciones internas de base de datos (prefijos de columna como `c`, `t`, `n`) en el contrato de la API.
@@ -644,8 +638,6 @@ Los nombres de campos del contrato JSON deben ser **semánticos y autodescriptiv
 { "c_notificacion": 13 }  // ❌ snake_case con prefijo de BD
 ```
 
-El mapeo entre el nombre del campo JSON y el nombre de la columna de base de datos debe realizarse en la capa de infraestructura, nunca exponiendo la convención interna al consumidor de la API.
-
 ```java
 // Correcto — el @JsonProperty mapea el contrato externo al nombre interno
 public record DeliveryRequest(
@@ -658,7 +650,7 @@ public record DeliveryRequest(
 
 ### 14.5 Consistencia entre microservicios del mismo dominio
 
-Los microservicios que comparten el mismo contrato de entrada y el mismo propósito funcional (workers de entrega de notificaciones, por ejemplo) deben exponer **exactamente el mismo patrón de ruta y la misma estructura de request/response**. Esto garantiza que el orquestador upstream los pueda tratar de forma uniforme y que un desarrollador que conozca uno entienda los demás sin esfuerzo adicional.
+Los microservicios que comparten el mismo contrato de entrada y el mismo propósito funcional deben exponer **exactamente el mismo patrón de ruta y la misma estructura de request/response**.
 
 | Microservicio | Endpoint REST | Cola asíncrona |
 |---|---|---|
@@ -691,18 +683,18 @@ El uso correcto de los códigos HTTP es parte del contrato de la API. Retornar `
 ### 15.2 Distinción entre 400 y 422
 
 - `400 Bad Request` — la petición está mal formada: campo obligatorio ausente, tipo de dato incorrecto, JSON inválido. La validación falla **antes** de intentar procesar el negocio.
-- `422 Unprocessable Entity` — la petición es estructuralmente válida y los campos pasan la validación, pero la **lógica de negocio o un sistema externo** no puede procesarla. Ejemplo: la notificación existe en base de datos, pero el proveedor de WhatsApp rechaza el envío.
+- `422 Unprocessable Entity` — la petición es estructuralmente válida y los campos pasan la validación, pero la **lógica de negocio o un sistema externo** no puede procesarla.
 
 ### 15.3 Uso de 202 Accepted en workers de entrega
 
-Los microservicios de tipo delivery worker (WhatsApp, SMS, Email) deben retornar `202 Accepted` cuando el proveedor externo acepta el mensaje para procesamiento, **no** `200 OK`. El `202` comunica con precisión que "el mensaje fue recibido y delegado, pero la entrega final no está garantizada en este instante".
+Los microservicios de tipo delivery worker deben retornar `202 Accepted` cuando el proveedor externo acepta el mensaje para procesamiento, **no** `200 OK`.
 
 ```java
 // Correcto
 return service.sendSync(request.notificationId())
     .map(response -> {
         if (response.accepted()) {
-            return Response.accepted(response).build();          // 202
+            return Response.accepted(response).build();           // 202
         } else {
             return Response.status(422).entity(response).build(); // 422
         }
@@ -713,8 +705,6 @@ return Response.ok(response).build(); // ❌ 200 para toda situación
 ```
 
 ### 15.4 Incluir Location header en 201 Created
-
-Cuando el endpoint crea un recurso persistido y retorna `201 Created`, debe incluir el header `Location` apuntando al URI del recurso recién creado.
 
 ```java
 URI location = uriInfo.getAbsolutePathBuilder()
@@ -728,7 +718,7 @@ return Response.created(location).entity(recurso).build();
 
 ## 16. Nomenclatura y Convenciones de Código
 
-- **Idioma de clases:** Todos los nombres de clases, interfaces, records y enums deben ser redactados en **inglés** obligatoriamente (ej. `ResourceNotFoundException`, `BridgeNotificationClient`). Los comentarios, Javadocs y mensajes de error orientados al usuario final o logs de negocio locales pueden permanecer en español.
+- **Idioma de clases:** Todos los nombres de clases, interfaces, records y enums deben ser redactados en **inglés** obligatoriamente. Los comentarios, Javadocs y mensajes orientados al usuario final o logs de negocio locales pueden permanecer en español.
 
 | Elemento | Convención | Ejemplo |
 |---|---|---|
@@ -736,7 +726,7 @@ return Response.created(location).entity(recurso).build();
 | Métodos y variables | `camelCase` | `getProduct` |
 | Constantes | `UPPER_SNAKE_CASE` | `MAX_RETRIES` |
 | Paquetes | `lowercase` | `ec.fin.baustro.api` |
-| Endpoints REST — segmentos de ruta | `kebab-case` en plural, sin prefijo `/api` | `/v1/products`, `/v1/purchase-orders`, `/v1/whatsapp/deliveries` |
+| Endpoints REST — segmentos de ruta | `kebab-case` en plural, sin prefijo `/api` | `/v1/products`, `/v1/whatsapp/deliveries` |
 | Campos JSON de contrato de API | `camelCase` semántico, sin prefijos de BD | `notificationId`, `purchaseOrderId` |
 | Variables de entorno | `UPPER_SNAKE_CASE` | `DB_PASSWORD`, `API_KEY` |
 | Excepciones de dominio | `PascalCase` + sufijo `Exception` | `ResourceNotFoundException` |
@@ -758,54 +748,272 @@ return Response.created(location).entity(recurso).build();
 
 ---
 
-## 18. Logging
+## 18. Logging y Trazabilidad Distribuida
+
+### 18.1 Principio general
+
+El objetivo no es solo registrar eventos: es poder **seguir un mismo request a través de varios microservicios** usando un único identificador. Esto se resuelve con tres piezas — un Correlation ID propagado en el borde, MDC poblado una sola vez, y logging estructurado por perfil — sin necesidad de introducir un stack de trazas distribuidas (Jaeger/Zipkin/OpenTelemetry) salvo que el proyecto lo requiera explícitamente.
+
+### 18.2 API de logging
 
 - Usar el mecanismo idiomático de Quarkus según la versión del proyecto:
-  - **Quarkus 3.x (recomendado):** anotación `@io.quarkus.logging.Log` — el compilador genera el logger estático automáticamente.
+  - **Quarkus 3.x (recomendado):** anotación `@io.quarkus.logging.Log`.
   - **Alternativa compatible:** `org.jboss.logging.Logger` instanciado manualmente.
-- **Prohibido** usar `System.out.println`, `e.printStackTrace()`, o loggers de otras librerías (Log4j directo, `java.util.logging`) salvo que el proyecto lo establezca explícitamente.
-- Los logs deben incluir contexto relevante (ID de correlación, ID del recurso afectado).
-- Niveles recomendados:
-  - `DEBUG`: flujo interno de ejecución.
-  - `INFO`: eventos relevantes de negocio.
-  - `WARN`: situaciones anómalas que no interrumpen el flujo.
-  - `ERROR`: fallos que requieren atención operacional.
+- **Prohibido** usar `System.out.println`, `e.printStackTrace()`, o loggers de otras librerías.
+- Elegir una sola API de logging por proyecto y mantenerla consistente en todas las clases.
+- Al usar `Logger.warnf`/`errorf` con una excepción, el `Throwable` va como **primer** argumento: `LOG.errorf(e, "mensaje %s", valor)`, nunca `LOG.errorf("mensaje %s", valor, e)`.
 
-**Quarkus 3.x — forma preferida:**
 ```java
-import io.quarkus.logging.Log;
+// Correcto
+LOG.warnf(e, "[WARN-SKIP] No se pudo cerrar la respuesta (correlationId=%s)",
+        CorrelationContext.getCorrelationId());
 
-@ApplicationScoped
-public class ProductoService {
+// Incorrecto — el stacktrace se descarta silenciosamente
+LOG.warnf("[WARN-SKIP] No se pudo cerrar la respuesta (correlationId=%s)",
+        CorrelationContext.getCorrelationId(), e);  // ❌
+```
 
-    public Uni<ProductoDTO> obtenerPorId(Long id) {
-        Log.infof("Buscando producto con ID: %d", id);
-        return productoRepository.findById(id)
-            .onItem().ifNull().failWith(() -> {
-                Log.warnf("Producto no encontrado. ID: %d", id);
-                return new RecursoNoEncontradoException("Producto con ID " + id + " no existe.");
-            })
-            .map(productoMapper::toDTO);
+- Niveles recomendados: `DEBUG` (flujo interno), `INFO` (eventos de negocio), `WARN` (anomalías no críticas), `ERROR` (fallos que requieren atención).
+
+### 18.3 Correlation ID — propagación end-to-end
+
+| Elemento | Valor estándar |
+|---|---|
+| Header HTTP | `X-Correlation-Id` |
+| Clave MDC | `correlationId` |
+| Clase utilitaria | `util/CorrelationContext.java` |
+| Filtro JAX-RS (servidor) | `filter/CorrelationFilter.java` |
+| Filtro de cliente REST (saliente) | `filter/CorrelationClientFilter.java` |
+
+**`CorrelationContext`:**
+```java
+public final class CorrelationContext {
+
+    public static final String HEADER_NAME = "X-Correlation-Id";
+    public static final String MDC_KEY = "correlationId";
+    public static final String MDC_SERVICE_KEY = "service";
+
+    private CorrelationContext() {}
+
+    public static String initCorrelation(String incomingCorrelationId) {
+        String id = (incomingCorrelationId != null && !incomingCorrelationId.isBlank())
+                ? incomingCorrelationId
+                : UUID.randomUUID().toString();
+        MDC.put(MDC_KEY, id);
+        return id;
+    }
+
+    public static String getCorrelationId() {
+        Object val = MDC.get(MDC_KEY);
+        return val != null ? val.toString() : null;
+    }
+
+    public static void clear() {
+        MDC.remove(MDC_KEY);
+        MDC.remove(MDC_SERVICE_KEY);
     }
 }
 ```
 
-**Alternativa con JBoss Logger:**
+**`CorrelationFilter`** — único lugar donde se llama `MDC.put`/`MDC.remove` en el servicio:
 ```java
-private static final Logger LOG = Logger.getLogger(ProductoService.class);
+@Provider
+public class CorrelationFilter implements ContainerRequestFilter, ContainerResponseFilter {
 
-LOG.infof("Producto creado exitosamente. ID: %d", producto.getId());
-LOG.errorf(e, "Error al obtener el producto con ID: %d", id);
+    private static final Logger LOG = Logger.getLogger(CorrelationFilter.class);
+    private static final String REQUEST_START_TIME = "X-Request-Start-Time";
+    private static final String SERVICE_NAME = "nombre-del-microservicio"; // ajustar por servicio
+
+    @Override
+    public void filter(ContainerRequestContext req) {
+        String resolvedId = CorrelationContext.initCorrelation(req.getHeaderString(CorrelationContext.HEADER_NAME));
+        MDC.put(CorrelationContext.MDC_SERVICE_KEY, SERVICE_NAME);
+        req.setProperty(REQUEST_START_TIME, System.currentTimeMillis());
+        LOG.infof("[REQUEST_IN] method=%s uri=%s correlationId=%s",
+                req.getMethod(), req.getUriInfo().getRequestUri(), resolvedId);
+    }
+
+    @Override
+    public void filter(ContainerRequestContext req, ContainerResponseContext res) {
+        String correlationId = CorrelationContext.getCorrelationId();
+        if (correlationId != null) {
+            res.getHeaders().add(CorrelationContext.HEADER_NAME, correlationId);
+        }
+        Long startTime = (Long) req.getProperty(REQUEST_START_TIME);
+        long latencyMs = startTime != null ? System.currentTimeMillis() - startTime : -1;
+        LOG.infof("[REQUEST_OUT] status=%d latencyMs=%d correlationId=%s",
+                res.getStatus(), latencyMs, correlationId);
+        CorrelationContext.clear();
+    }
+}
 ```
+
+**`CorrelationClientFilter`** — propaga el ID a toda llamada REST saliente:
+```java
+@Provider
+public class CorrelationClientFilter implements ClientRequestFilter {
+
+    @Override
+    public void filter(ClientRequestContext requestContext) {
+        String correlationId = (String) MDC.get("correlationId");
+        if (correlationId != null) {
+            requestContext.getHeaders().putSingle("X-Correlation-Id", correlationId);
+        }
+    }
+}
+```
+
+**Regla no negociable: el MDC se siembra solo en el borde, nunca en el código de negocio.**
+
+```java
+// Correcto — el código de negocio no toca el MDC
+Log.infof("[NOTIFICATION_PERSISTED] cNotificacion=%d", notificacion.getId());
+
+// Incorrecto — reintroduce dependencia manual
+Log.infof("[NOTIFICATION_PERSISTED] cNotificacion=%d correlationId=%s",
+        notificacion.getId(), CorrelationContext.getCorrelationId());  // ❌
+```
+
+### 18.4 Correlation ID a través de colas AMQP (asíncrono)
+
+El Correlation ID viaja **dentro del body del mensaje** como un campo del DTO:
+
+```java
+public record WhatsappDeliveryMessage(
+        @JsonProperty("cnotificacion") Long cNotificacion,
+        @JsonProperty("correlationId") String correlationId
+) {}
+```
+
+```java
+@Incoming("whatsapp-in")
+public Uni<Void> consume(JsonObject jsonMessage) {
+    WhatsappDeliveryMessage message = jsonMessage.mapTo(WhatsappDeliveryMessage.class);
+    String correlationId = (message.correlationId() != null && !message.correlationId().isBlank())
+            ? message.correlationId()
+            : UUID.randomUUID().toString();
+    MDC.put("correlationId", correlationId);
+    MDC.put("service", "nombre-del-microservicio");
+    LOG.infof("[AMQ_CONSUMED] queue=nombreDeLaCola cNotificacion=%d", message.cNotificacion());
+    return service.process(message.cNotificacion())
+            .onFailure().invoke(e -> LOG.errorf(e, "[AMQ_FAILED] cNotificacion=%d", message.cNotificacion()))
+            .eventually(() -> {
+                MDC.remove("correlationId");
+                MDC.remove("service");
+                return Uni.createFrom().voidItem();
+            });
+}
+```
+
+#### 18.4.1 MDC y saltos de hilo en código reactivo (Mutiny)
+
+En una cadena `Uni<T>`, cada operador puede ejecutarse en un hilo distinto. Capturar el correlationId **antes del salto** y restaurarlo dentro del callback:
+
+```java
+// Correcto
+String correlationId = CorrelationContext.getCorrelationId();
+
+emitter.send(message).whenComplete((result, failure) -> {
+    MDC.put("correlationId", correlationId);
+    if (failure != null) {
+        LOG.errorf(failure, "[AMQ_PUBLISH_FAILED] correlationId=%s", correlationId);
+    } else {
+        LOG.infof("[AMQ_PUBLISH] correlationId=%s", correlationId);
+    }
+    MDC.remove("correlationId");
+});
+```
+
+### 18.5 `application.properties` — perfiles y logging estructurado
+
+```properties
+# --- DEV: consola legible para humanos ---
+%dev.quarkus.log.console.format=%d{HH:mm:ss.SSS} %-5p [%c{2.}] (%t) [%X{correlationId}] %s%e%n
+%dev.quarkus.log.level=INFO
+%dev.quarkus.log.category."ec.fin.baustro".level=DEBUG
+
+# --- QA: JSON estructurado ---
+%qa.quarkus.log.console.json=true
+%qa.quarkus.log.level=INFO
+%qa.quarkus.log.category."ec.fin.baustro".level=INFO
+%qa.quarkus.log.console.json.additional-field.env.value=qa
+%qa.quarkus.log.console.json.additional-field.env.type=string
+
+# --- PROD: JSON estructurado, ruido de frameworks reducido ---
+%prod.quarkus.log.console.json=true
+%prod.quarkus.log.level=WARN
+%prod.quarkus.log.category."ec.fin.baustro".level=INFO
+%prod.quarkus.log.console.json.additional-field.env.value=prod
+%prod.quarkus.log.console.json.additional-field.env.type=string
+
+# --- Tramas REST Client salientes — solo dev/qa, nunca prod ---
+%dev.quarkus.rest-client.logging.scope=request-response
+%dev.quarkus.rest-client.logging.body-limit=4096
+%qa.quarkus.rest-client.logging.scope=request-response
+%qa.quarkus.rest-client.logging.body-limit=1024
+%prod.quarkus.rest-client.logging.scope=none
+
+# --- Access log HTTP entrante ---
+%dev.quarkus.http.access-log.enabled=true
+%dev.quarkus.http.access-log.pattern="%r %s %b ms=%D"
+%qa.quarkus.http.access-log.enabled=true
+%qa.quarkus.http.access-log.pattern="%r %s %b"
+%prod.quarkus.http.access-log.enabled=false
+```
+
+> **Si se usa logging JSON** (`quarkus-logging-json`), agregar los campos MDC con la sintaxis correcta `.additional-field.<nombre>.value` + `.type`:
+> ```properties
+> quarkus.log.console.json.additional-field.correlationId.value=%X{correlationId}
+> quarkus.log.console.json.additional-field.correlationId.type=string
+> quarkus.log.console.json.additional-field.service.value=%X{service}
+> quarkus.log.console.json.additional-field.service.type=string
+> ```
+> La forma `additional-fields` (plural, una sola línea) **no es válida**.
+
+**Nunca activar logging de tramas completas sin gate de perfil** — expone PII en producción.
+
+### 18.6 PII en categorías de log de librerías de infraestructura
+
+Algunas extensiones de Quarkus loguean PII a niveles que parecen inofensivos (`quarkus-mailer` imprime destinatario y cuerpo a nivel `INFO`). Siempre revisar antes de subir el nivel de una categoría externa y aplicar gate por perfil.
+
+```properties
+%dev.quarkus.log.category."io.quarkus.mailer".level=DEBUG
+%qa.quarkus.log.category."io.quarkus.mailer".level=INFO
+%prod.quarkus.log.category."io.quarkus.mailer".level=WARN
+```
+
+### 18.7 Catálogo de eventos — prefijos estandarizados
+
+| Prefijo | Cuándo se usa |
+|---|---|
+| `[REQUEST_IN]` | Entrada a un endpoint HTTP |
+| `[REQUEST_OUT]` | Salida de un endpoint HTTP, con status code y latencia |
+| `[AMQ_CONSUMED]` | Mensaje recibido desde una cola AMQP |
+| `[AMQ_PUBLISH]` | Mensaje publicado exitosamente en una cola AMQP |
+| `[AMQ_PUBLISH_FAILED]` / `[AMQ_FAILED]` | Falla al publicar o procesar un mensaje AMQP |
+| `[DELIVERY_SENDING]` / `[DELIVERY_SENT]` | Envío iniciado / aceptado por un proveedor externo |
+| `[DELIVERY_FAILED_TEMP]` / `[DELIVERY_FAILED_PERM]` | Falla temporal / permanente en la entrega |
+| `[WARN-SKIP]` | Situación anómala no crítica que se omite sin interrumpir el flujo |
+
+### 18.8 Checklist de implementación para un microservicio nuevo
+
+1. Crear `util/CorrelationContext.java` y `filter/CorrelationFilter.java`, ajustando `SERVICE_NAME`.
+2. Crear `filter/CorrelationClientFilter.java`.
+3. Si consume colas AMQP: agregar el campo `correlationId` al DTO de mensaje y sembrar/limpiar MDC en `@Incoming`.
+4. Si se usa JSON logging: agregar dependencia `quarkus-logging-json` al `pom.xml`.
+5. Configurar `application.properties` con gate por perfil en todo lo que loguee tramas o body.
+6. Revisar las categorías de logging de extensiones con datos del cliente (sección 18.6).
+7. Prefijar los logs de eventos con el catálogo de la sección 18.7.
+8. **No** llamar `CorrelationContext.getCorrelationId()` desde el código de negocio.
 
 ---
 
 ## 19. Versionado de API
 
-- Versionar los endpoints desde la primera publicación usando el segmento `/v1/` directamente en la raíz de la ruta, **sin prefijo `/api`**: `/v1/productos`, `/v1/whatsapp/deliveries`.
+- Versionar los endpoints desde la primera publicación usando `/v1/` directamente en la raíz, sin prefijo `/api`.
 - Nunca eliminar ni romper contratos de versiones activas; deprecar antes de eliminar.
 - Indicar la deprecación con `@Deprecated` en el código y en la anotación OpenAPI correspondiente.
-- Al introducir una versión nueva (`/v2/...`), mantener la versión anterior activa durante un periodo de transición acordado con los consumidores.
+- Al introducir `/v2/`, mantener la versión anterior activa durante un periodo de transición acordado.
 
 ---
 
@@ -813,16 +1021,13 @@ LOG.errorf(e, "Error al obtener el producto con ID: %d", id);
 
 - Usar clientes REST tipados (`@RegisterRestClient`) para comunicación síncrona.
 - Para comunicación asíncrona, preferir mensajería (Kafka, RabbitMQ, AMQ) sobre llamadas directas.
-- Implementar `@CircuitBreaker`, `@Retry` y `@Timeout` en todos los clientes externos para resiliencia.
+- Implementar `@CircuitBreaker`, `@Retry` y `@Timeout` en todos los clientes externos.
 
 ### 20.1 Externalizar parámetros de resiliencia en properties
 
-**Prohibido** hardcodear los valores de `@Retry`, `@CircuitBreaker` y `@Timeout` directamente en las anotaciones. Deben externalizarse en `application.properties` para poder ajustarse sin recompilar.
-
-Las anotaciones se mantienen en el código **únicamente como documentación de intención** y con valores de fallback para desarrollo local:
+**Prohibido** hardcodear los valores en las anotaciones. Externalizarlos en `application.properties`:
 
 ```java
-// La anotación documenta la intención; los valores reales vienen de properties
 @GET
 @CircuitBreaker(requestVolumeThreshold = 4)
 @Retry(maxRetries = 3, delay = 1000)
@@ -832,18 +1037,263 @@ Uni<List<ReglaConfigDto>> getRules(@QueryParam("cevento") String cEvento,
 ```
 
 ```properties
-# Formato: fully-qualified-class/method/annotation/parameter
 ec.fin.baustro.client.PersistenceClient/getRules/Retry/maxRetries=${PERSISTENCE_RETRY_MAX:3}
 ec.fin.baustro.client.PersistenceClient/getRules/Retry/delay=${PERSISTENCE_RETRY_DELAY_MS:1000}
 ec.fin.baustro.client.PersistenceClient/getRules/Timeout/value=${PERSISTENCE_TIMEOUT_MS:5000}
-
-# Aplicar a todos los métodos de un cliente (alternativa por clase)
-ec.fin.baustro.client.DispatchClient/Retry/maxRetries=${DISPATCH_RETRY_MAX:3}
-ec.fin.baustro.client.DispatchClient/Timeout/value=${DISPATCH_TIMEOUT_MS:5000}
 ```
-
-Los valores de las variables de entorno deben seguir la convención de secretos de la sección 11.
 
 ### 20.2 Propagación de ID de correlación
 
-Propagar un ID de correlación entre microservicios mediante el header `X-Request-ID` en todas las llamadas inter-servicio. En ausencia de OpenTelemetry, incluirlo manualmente en los clientes REST registrados. Los logs deben incluir este ID como contexto en cada entrada relevante.
+Ver sección 18.3. El header estándar es `X-Correlation-Id` (no `X-Request-ID` ni otra variante) — idéntico en los 4 puntos de propagación.
+
+---
+
+## 21. Organización de `application.properties`
+
+### 21.1 Orden de bloques recomendado
+
+```properties
+# ============================================================
+# APPLICATION
+# ============================================================
+quarkus.application.name=...
+quarkus.application.version=1.0.0
+quarkus.banner.enabled=false
+
+# ============================================================
+# REST CLIENTS — <Nombre del servicio externo>
+# ============================================================
+%dev.quarkus.rest-client.x-service.url=...
+%qa.quarkus.rest-client.x-service.url=...
+%prod.quarkus.rest-client.x-service.url=...
+quarkus.rest-client.x-service.connect-timeout=3000
+quarkus.rest-client.x-service.read-timeout=5000
+
+# ============================================================
+# AMQP (si aplica)
+# ============================================================
+
+# ============================================================
+# RESILIENCE — Retry & Circuit Breaker
+# ============================================================
+
+# ============================================================
+# OPENAPI
+# ============================================================
+
+# ============================================================
+# LOGGING ESTRUCTURADO (sección 18.5)
+# ============================================================
+```
+
+### 21.2 Una dependencia externa, un bloque
+
+Todo lo relacionado a una misma dependencia externa va junto: las 3 URLs por perfil, los timeouts y cualquier configuración propia. No separar URLs y timeouts en secciones distintas del archivo.
+
+### 21.3 Perfiles y entornos de despliegue
+
+- `%dev` — desarrollo local.
+- `%qa` / `%prod` — despliegues en clúster, usando variables de entorno con fallback (`${VARIABLE:valor-default}`), nunca URLs hardcodeadas.
+- El log a archivo (`quarkus.log.file.*`) **no es el patrón por defecto** en entornos containerizados — escribir a stdout y dejar que el recolector del clúster lo levante.
+
+---
+
+## 22. Catálogo de Códigos de Respuesta de Negocio
+
+### 22.1 Principio fundamental
+
+`codRespuesta` es un **código de negocio**, no un espejo del HTTP status. El código HTTP lo transporta el protocolo; `codRespuesta` expresa el resultado desde la perspectiva del dominio de la aplicación.
+
+- **El éxito siempre es `"000"`**, independientemente del HTTP status (`200`, `201`, `202`).
+- Cualquier valor distinto de `"000"` indica una condición anómala específica.
+- Los códigos son cadenas de tres dígitos (`String`) para compatibilidad con sistemas legados y para permitir sub-rangos futuros.
+- **Prohibido** devolver el HTTP status como valor de `codRespuesta` (ej. `"200"`, `"404"`, `"500"`).
+
+### 22.2 Tabla maestra de códigos
+
+#### Rango `000` — Éxito
+
+| Código | Constante sugerida | `msgUsuario` estándar | Escenario |
+|--------|-------------------|----------------------|-----------|
+| `000` | `SUCCESS` | `Operación exitosa` | Operación completada correctamente. |
+
+#### Rango `1xx` — Errores de entrada / contrato (cliente)
+
+HTTP asociado: `400`, `422`.
+
+| Código | Constante sugerida | `msgUsuario` estándar | Escenario |
+|--------|-------------------|----------------------|-----------|
+| `100` | `VALIDATION_ERROR` | `Los datos enviados no son válidos` | Violaciones de Bean Validation (`@NotNull`, `@Pattern`, `@Size`…). Siempre acompaña un array `violations`. |
+| `101` | `MISSING_REQUIRED_FIELD` | `Falta un campo obligatorio` | Campo requerido ausente no cubierto por Bean Validation. |
+| `102` | `INVALID_FORMAT` | `El formato del dato enviado no es correcto` | Tipo de dato incorrecto, JSON malformado, fecha inválida. |
+| `103` | `UNSUPPORTED_VALUE` | `El valor indicado no está soportado` | Valor de enumeración desconocido (canal, estado, tipo de evento). |
+
+#### Rango `2xx` — Errores de negocio / dominio
+
+HTTP asociado: `404`, `409`, `422`.
+
+| Código | Constante sugerida | `msgUsuario` estándar | Escenario |
+|--------|-------------------|----------------------|-----------|
+| `200` | `RESOURCE_NOT_FOUND` | `El recurso solicitado no fue encontrado` | Entidad buscada no existe en el sistema. HTTP 404. |
+| `201` | `NO_ACTIVE_RULES` | `No existen reglas activas para los parámetros indicados` | Sin reglas habilitadas para el par evento/origen. HTTP 404. |
+| `202` | `MISSING_CONTACT_INFO` | `No se pudo obtener información de contacto para el destinatario` | Sin teléfono/correo en el request ni en el orquestador externo. |
+| `203` | `BUSINESS_RULE_VIOLATION` | `La operación no puede completarse por una regla de negocio` | Caso de uso válido pero vetado por una regla de dominio. HTTP 422. |
+
+#### Rango `3xx` — Errores de dependencias externas (downstream)
+
+HTTP asociado: `502`, `503`, `504`.
+
+| Código | Constante sugerida | `msgUsuario` estándar | Escenario |
+|--------|-------------------|----------------------|-----------|
+| `300` | `DOWNSTREAM_ERROR` | `Error al comunicarse con un servicio externo` | Fallo genérico en una dependencia externa. |
+| `301` | `PERSISTENCE_ERROR` | `Error al comunicarse con el servicio de persistencia` | Fallo al registrar o consultar en persistencia. HTTP 502. |
+| `302` | `DISPATCH_ERROR` | `Error al comunicarse con el servicio de despacho` | Fallo al enviar al canal (SMS, Email, WhatsApp). HTTP 502. |
+| `303` | `STORAGE_ERROR` | `Error al subir el adjunto al almacenamiento` | Fallo en Document Object Storage. HTTP 502. |
+| `304` | `CUSTOMER_INFO_ERROR` | `Error al consultar los datos del cliente` | Fallo al consultar el orquestador de datos de persona. HTTP 502. |
+| `305` | `CIRCUIT_BREAKER_OPEN` | `El servicio no está disponible temporalmente, intente más tarde` | Circuit breaker abierto en alguna dependencia. HTTP 503. |
+
+#### Rango `9xx` — Errores internos / inesperados
+
+HTTP asociado: `500`.
+
+| Código | Constante sugerida | `msgUsuario` estándar | Escenario |
+|--------|-------------------|----------------------|-----------|
+| `900` | `INTERNAL_ERROR` | `Ha ocurrido un error inesperado. Por favor contacte al soporte técnico.` | Error de runtime no capturado por ningún handler específico. |
+| `901` | `CONFIGURATION_ERROR` | `Error en la configuración del sistema` | Parámetro de configuración inválido detectado en tiempo de ejecución. |
+
+### 22.3 Estructura de la clase `ApiResponse<T>`
+
+Todo microservicio debe incluir esta clase en el paquete `dto`. Es el **único** envoltorio de respuesta permitido.
+
+```java
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Respuesta unificada de API")
+@RegisterForReflection
+public class ApiResponse<T> {
+
+    @Schema(description = "Mensaje amigable para el usuario o sistema consumidor")
+    public String msgUsuario;
+
+    @Schema(description = "Mensaje técnico detallado para soporte")
+    public String msgTecnico;
+
+    @Schema(description = "Código de negocio de la operación (ver catálogo, sección 22.2)")
+    public String codRespuesta;
+
+    @Schema(description = "Payload de negocio. Presente solo en respuestas exitosas (codRespuesta=000).")
+    public T data;
+
+    @Schema(description = "Lista de violaciones de validación. Presente solo cuando codRespuesta=100.")
+    public List<Violation> violations;
+
+    public ApiResponse() {}
+
+    public ApiResponse(String msgUsuario, String msgTecnico, String codRespuesta, T data) {
+        this.msgUsuario = msgUsuario;
+        this.msgTecnico = msgTecnico;
+        this.codRespuesta = codRespuesta;
+        this.data = data;
+    }
+
+    /** Respuesta exitosa. codRespuesta siempre es "000". */
+    public static <T> ApiResponse<T> success(T data) {
+        return new ApiResponse<>("Operación exitosa", "Procesado correctamente", "000", data);
+    }
+
+    /** Respuesta de error de negocio o técnico sin payload. */
+    public static <T> ApiResponse<T> error(String msgUsuario, String msgTecnico, String codRespuesta) {
+        return new ApiResponse<>(msgUsuario, msgTecnico, codRespuesta, null);
+    }
+
+    /** Respuesta de validación. codRespuesta siempre es "100". */
+    public static ApiResponse<Void> validationError(String msgTecnico, List<Violation> violations) {
+        ApiResponse<Void> response = new ApiResponse<>(
+                "Los datos enviados no son válidos", msgTecnico, "100", null);
+        response.violations = violations;
+        return response;
+    }
+
+    @RegisterForReflection
+    public static class Violation {
+        @Schema(description = "Campo que generó la violación")
+        public String field;
+
+        @Schema(description = "Descripción del error de validación")
+        public String message;
+
+        public Violation() {}
+
+        public Violation(String field, String message) {
+            this.field = field;
+            this.message = message;
+        }
+    }
+}
+```
+
+### 22.4 Estructura de respuestas por escenario
+
+#### Éxito (HTTP 200 / 201 / 202)
+```json
+{
+  "msgUsuario": "Operación exitosa",
+  "msgTecnico": "Procesado correctamente",
+  "codRespuesta": "000",
+  "data": { ... }
+}
+```
+
+#### Error de validación (HTTP 400)
+```json
+{
+  "msgUsuario": "Los datos enviados no son válidos",
+  "msgTecnico": "Constraint Violation",
+  "codRespuesta": "100",
+  "violations": [
+    { "field": "request.ctl.correo", "message": "El correo debe tener un formato válido." },
+    { "field": "request.ctl.celular", "message": "El celular debe tener 10 o 12 dígitos." }
+  ]
+}
+```
+
+#### Error de negocio (HTTP 404)
+```json
+{
+  "msgUsuario": "El recurso solicitado no fue encontrado",
+  "msgTecnico": "RecursoNoEncontradoException: Producto con ID 42 no existe",
+  "codRespuesta": "200",
+  "data": null
+}
+```
+
+#### Error interno (HTTP 500)
+```json
+{
+  "msgUsuario": "Ha ocurrido un error inesperado. Por favor contacte al soporte técnico.",
+  "msgTecnico": "NullPointerException en ProductoService.obtenerPorId()",
+  "codRespuesta": "900",
+  "data": null
+}
+```
+
+### 22.5 Reglas de consistencia
+
+- `data` es **siempre `null`** cuando `codRespuesta` es distinto de `"000"`.
+- `violations` es **siempre `null`** cuando `codRespuesta` es distinto de `"100"`. El campo `data` no aparece cuando hay `violations`.
+- `msgTecnico` puede incluir el mensaje de la excepción para facilitar el soporte, **nunca** el stack trace completo.
+- **No crear códigos fuera de los rangos definidos** sin documentarlos y comunicarlos al equipo. El catálogo es un contrato compartido.
+- Todos los microservicios del mismo ecosistema deben usar **exactamente el mismo catálogo**. No se permiten variantes por microservicio.
+
+### 22.6 Mapeo entre codRespuesta y HTTP status de referencia
+
+| `codRespuesta` | HTTP status asociado | Justificación |
+|----------------|---------------------|---------------|
+| `000` | `200`, `201`, `202` | Éxito; el HTTP status comunica la semántica REST (creado, aceptado, etc.) |
+| `100` | `400` | Validación de entrada fallida |
+| `101`, `102`, `103` | `400` / `422` | Formato o valor inválido |
+| `200`, `201` | `404` | Recurso o regla no encontrada |
+| `202`, `203` | `422` | Lógica de negocio no puede completarse |
+| `301`–`304` | `502` | Dependencia externa falló |
+| `305` | `503` | Circuit breaker abierto |
+| `900`, `901` | `500` | Error interno |
+

@@ -204,3 +204,31 @@ echo "U2FsdGVkX1+AbCdEfG..." | openssl enc -aes-256-cbc -d -a -salt -pass pass:t
 ```
 
 Recuerda que base64 por sí mismo no es una forma de encriptación segura, sino solo una codificación que puede ser fácilmente revertida. Para una verdadera seguridad, debes usar algoritmos de encriptación como los que proporciona OpenSSL.
+
+
+---
+## Copiar archivos entre servidores
+
+### Método 1: Usando `scp` (El método clásico)
+
+La sintaxis básica de `scp` funciona igual que el comando `cp` tradicional, pero añadiendo los datos de conexión SSH (`usuario@servidor:`).
+
+#### Caso A: Estás en el Servidor A y quieres enviar un archivo al Servidor B
+
+```bash
+scp /ruta/archivo.txt usuario_B@ip_servidor_B:/ruta/destino/
+```
+
+#### Caso B: Estás en el Servidor B y quieres traer un archivo desde el Servidor A
+
+```bash
+scp usuario_A@ip_servidor_A:/ruta/archivo.txt /ruta/destino/local/
+```
+
+#### ¿Y si es una carpeta completa?
+
+Solo debes agregar la opción **`-r`** (recursivo):
+
+```bash
+scp -r /ruta/carpeta/ usuario_B@ip_servidor_B:/ruta/destino/
+```
