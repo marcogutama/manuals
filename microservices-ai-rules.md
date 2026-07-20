@@ -461,62 +461,77 @@ public class RecursoNoEncontradoException extends RuntimeException {
 throw new NotFoundException("Producto no encontrado");  // ❌
 ```
 
-### 12.2 GlobalExceptionMapper — mapper unificado
+### 12.2 ExceptionMapper — uno o varios, según el tipo de excepción
 
-**Un único** `GlobalExceptionMapper` implementando `ExceptionMapper<RuntimeException>` centraliza el manejo de todos los errores. Esto es preferible a tener un mapper por excepción cuando el proyecto maneja más de dos o tres tipos de error, ya que evita la proliferación de clases y mantiene toda la lógica de traducción en un solo lugar visible.
+JAX-RS despacha cada excepción al `ExceptionMapper<T>` cuyo tipo `T` sea el **más específico** que aplique — este mecanismo es nativo del spec, no requiere lógica de ordenamiento manual. Por eso está permitido y es preferible tener **varios mappers**, uno por familia de excepciones, en lugar de forzar toda la lógica en un único `ExceptionMapper<RuntimeException>` con un `switch`/`instanceof` gigante:
 
-El mapper es el **único punto** que conoce JAX-RS y traduce a HTTP. Las capas de servicio y cliente nunca deben conocer `Response` ni códigos HTTP.
+- **A favor de varios mappers:** cada uno cumple el Principio de Responsabilidad Única, se testea de forma aislada, y agregar un nuevo tipo de excepción es una clase nueva (abierto/cerrado) en vez de tocar un `switch` que ya maneja varios casos.
+- **Requisito no negociable:** todos los mappers del proyecto —sin importar cuántos sean— deben tomar el valor de `codRespuesta` de un **único enum compartido** que represente el catálogo de la sección 22.2 (ver `CodigoRespuesta` más abajo). **Prohibido** escribir el código como string literal (`"200"`, `"900"`...) en más de un lugar; eso es lo que realmente rompe la consistencia entre microservicios, no la cantidad de clases mapper.
 
 ```java
+// Enum compartido — única fuente de verdad para codRespuesta (catálogo, sección 22.2)
+public enum CodigoRespuesta {
+    SUCCESS("000"),
+    VALIDATION_ERROR("100"),
+    RESOURCE_NOT_FOUND("200"),
+    BUSINESS_RULE_VIOLATION("203"),
+    DOWNSTREAM_ERROR("300"),
+    PERSISTENCE_ERROR("301"),
+    DISPATCH_ERROR("302"),
+    INTERNAL_ERROR("900");
+    // ... resto del catálogo de la sección 22.2
+
+    private final String code;
+    CodigoRespuesta(String code) { this.code = code; }
+    public String code() { return code; }
+}
+
+// Mapper específico — más concreto que RuntimeException, JAX-RS lo prioriza automáticamente
+@Provider
+public class ValidationExceptionMapper implements ExceptionMapper<ConstraintViolationException> {
+
+    @Override
+    public Response toResponse(ConstraintViolationException exception) {
+        List<ApiResponse.Violation> violations = /* ... */;
+        return Response.status(Response.Status.BAD_REQUEST)
+                .entity(ApiResponse.validationError("Constraint Violation", violations)) // usa CodigoRespuesta.VALIDATION_ERROR internamente
+                .build();
+    }
+}
+
+// Mapper genérico — captura todo lo que no tiene mapper específico
 @Provider
 public class GlobalExceptionMapper implements ExceptionMapper<RuntimeException> {
 
     @Override
     public Response toResponse(RuntimeException exception) {
-
-        if (exception instanceof ConstraintViolationException cve) {
-            Log.warnf("Violaciones de validación: %s", cve.getMessage());
-            List<ApiResponse.Violation> violations = cve.getConstraintViolations().stream()
-                    .map(cv -> {
-                        String rawPath = cv.getPropertyPath().toString();
-                        String field = rawPath.contains(".")
-                                ? rawPath.substring(rawPath.indexOf('.') + 1)
-                                : rawPath;
-                        return new ApiResponse.Violation(field, cv.getMessage());
-                    })
-                    .toList();
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(ApiResponse.validationError("Constraint Violation", violations))
-                    .build();
-        }
-
-        if (exception instanceof RecursoNoEncontradoException) {
-            Log.warnf("Recurso no encontrado: %s", exception.getMessage());
-            return buildResponse(Response.Status.NOT_FOUND,
-                    "Recurso no encontrado", exception.getMessage(), "200");
-        }
-
-        Log.errorf(exception, "Error inesperado");
-        return buildResponse(Response.Status.INTERNAL_SERVER_ERROR,
-                "Ha ocurrido un error inesperado. Por favor, póngase en contacto con el soporte técnico.",
-                exception.getMessage() != null ? exception.getMessage() : "Error inesperado en el sistema",
-                "900");
+        return switch (exception) {
+            case ResourceNotFoundException rnfe -> buildResponse(Response.Status.NOT_FOUND,
+                    "Recurso no encontrado", rnfe.getMessage(), CodigoRespuesta.RESOURCE_NOT_FOUND);
+            default -> buildResponse(Response.Status.INTERNAL_SERVER_ERROR,
+                    "Ha ocurrido un error inesperado. Por favor contacte al soporte técnico.",
+                    exception.getMessage(), CodigoRespuesta.INTERNAL_ERROR);
+        };
     }
 
     private Response buildResponse(Response.Status status, String msgUsuario,
-                                   String msgTecnico, String codRespuesta) {
+                                   String msgTecnico, CodigoRespuesta codigo) {
         return Response.status(status)
-                .entity(ApiResponse.error(msgUsuario, msgTecnico, codRespuesta))
+                .entity(ApiResponse.error(msgUsuario, msgTecnico, codigo.code()))
                 .build();
     }
 }
 ```
 
-> **Nota:** el caso `ConstraintViolationException` debe ir **primero** en el mapper, antes de cualquier otro `instanceof`, para que tome precedencia sobre el handler automático de Quarkus.
+El mapper (o mappers) es el **único punto** que conoce JAX-RS y traduce a HTTP. Las capas de servicio y cliente nunca deben conocer `Response` ni códigos HTTP — pero sí pueden (y deben) referenciar `CodigoRespuesta` cuando necesiten expresar un resultado de negocio, ya que es un código de dominio, no un detalle de transporte HTTP.
 
-### 12.3 Prioridad del GlobalExceptionMapper sobre el handler de Quarkus
+> **Nota de ubicación:** `CodigoRespuesta` es consumido por capas de dominio, adaptadores de proveedores externos y la capa REST por igual. Para no crear una dependencia inversa (dominio → presentación), el enum debe vivir en un paquete neutral compartido (ej. `util` o `common`), nunca dentro del paquete `resource`/`rest` de la capa de presentación.
 
-Por defecto, Quarkus tiene su propio handler para `ConstraintViolationException` que produce una respuesta con estructura propia. Para garantizar que `GlobalExceptionMapper` tenga precedencia, agregar en `application.properties`:
+> **Sobre la precedencia con `ConstraintViolationException`:** al tener su propio mapper (`ValidationExceptionMapper implements ExceptionMapper<ConstraintViolationException>`), JAX-RS lo selecciona automáticamente por ser más específico que `ExceptionMapper<RuntimeException>` — no hace falta ningún `instanceof` ni orden manual para este caso.
+
+### 12.3 Prioridad de los ExceptionMapper de la aplicación sobre el handler de Quarkus
+
+Por defecto, Quarkus tiene su propio handler para `ConstraintViolationException` que produce una respuesta con estructura propia. Para garantizar que los `ExceptionMapper` de la aplicación (sea uno solo o varios, ver 12.2) tengan precedencia, agregar en `application.properties`:
 
 ```properties
 # Desactiva el handler automático de Quarkus para ConstraintViolationException
@@ -1046,6 +1061,81 @@ ec.fin.baustro.client.PersistenceClient/getRules/Timeout/value=${PERSISTENCE_TIM
 
 Ver sección 18.3. El header estándar es `X-Correlation-Id` (no `X-Request-ID` ni otra variante) — idéntico en los 4 puntos de propagación.
 
+### 20.3 Acotar `@Retry`, `@CircuitBreaker` y `@Fallback` a fallos transitorios
+
+**Prohibido** declarar `@Retry` y `@CircuitBreaker` sin parámetros de clasificación de excepciones.
+Por defecto, MicroProfile Fault Tolerance reintenta ante **cualquier** `Exception`, incluyendo
+errores no transitorios (4xx, validación, datos no encontrados). Esto desperdicia reintentos,
+retrasa la respuesta al cliente y puede enmascarar bugs reales como si fueran fallos de red.
+
+#### Regla de oro: `@Retry` es lista blanca; `@CircuitBreaker`/`@Fallback` son lista negra
+
+- `@Retry(retryOn = {...})`: **solo** lo listado se reintenta. Todo lo demás aborta
+  automáticamente — por tanto, declarar `abortOn` con excepciones que ya están fuera de
+  `retryOn` es redundante y debe evitarse.
+- `@CircuitBreaker` y `@Fallback` evalúan por defecto **cualquier** `Throwable` como fallo.
+  `skipOn` es la única forma de excluir explícitamente una excepción (p. ej. un 4xx) de contar
+  como fallo de infraestructura o de disparar el fallback. Aquí `skipOn` **no** es opcional.
+
+**Correcto** (cliente REST reactivo de Quarkus — `quarkus-rest-client-*`):
+```java
+@CircuitBreaker(skipOn = { jakarta.ws.rs.ClientErrorException.class })
+@Retry(retryOn = {
+    jakarta.ws.rs.ProcessingException.class,   // timeouts y fallos de transporte (Vert.x/Netty)
+    jakarta.ws.rs.ServerErrorException.class   // 5xx del servidor remoto
+})
+@Fallback(value = MiFallback.class, skipOn = { jakarta.ws.rs.ClientErrorException.class })
+public Uni<Respuesta> llamarServicio(...) { ... }
+```
+
+**Incorrecto:**
+```java
+@CircuitBreaker
+@Retry
+@Fallback(MiFallback.class)   // ❌ reintenta y abre el circuito también ante 4xx y errores de validación
+```
+
+#### Por qué `ProcessingException` y no `ConnectException`/`TimeoutException` sueltos
+
+En `quarkus-rest-client` (RESTEasy Reactive sobre Vert.x/Netty), los fallos de conexión y
+timeout se propagan encapsulados en `jakarta.ws.rs.ProcessingException` — la causa anidada
+puede ser `ConnectException`, `NoStackTraceTimeoutException`, etc., pero el tipo lanzado en el
+nivel superior (el que evalúa `retryOn`) siempre es `ProcessingException`. Listar las causas
+anidadas por separado en `retryOn` es código muerto: nunca llegan a evaluarse porque
+`ProcessingException` ya resuelve el match antes.
+
+> **No asumir esto de memoria.** Verificar contra la versión exacta de Quarkus del proyecto
+> (el comportamiento de *wrapping* ha cambiado entre versiones) y, antes de cerrar el PR,
+> confirmar con una prueba de integración (p. ej. WireMock con retraso mayor al `read-timeout`,
+> o simulando conexión rechazada) qué excepción concreta se lanza. Un test unitario con mocks
+> **no** es evidencia válida — nunca dispara un timeout de socket real.
+
+#### Límite del alcance reactivo: no mezclar capas
+
+Una excepción de dominio (p. ej. `ResourceNotFoundException`) que se lanza en el *consumidor*
+del `Uni` — no en el método REST-cliente anotado — **nunca** debe aparecer en `abortOn`,
+`skipOn` o `failOn` de ese método. No tiene ningún efecto (el interceptor de Fault Tolerance
+solo ve las fallas que ocurren dentro del método que anota) y es ruido que sugiere una
+comprensión incorrecta del límite entre la llamada HTTP y la lógica de negocio que la consume.
+
+Antes de añadir cualquier excepción a estas anotaciones, preguntar: **¿esta excepción la lanza
+directamente el método anotado, o la lanza otro bean más adelante en la cadena reactiva?**
+Solo la primera pertenece aquí.
+
+#### Presupuesto de tiempo documentado
+
+Cuando se combinan `@Retry` con `delay` y timeouts de REST client, documentar en el README el
+peor caso real, incluyendo el `delay` entre reintentos (no solo `timeout × intentos`):
+
+```
+peor_caso_por_llamada = (read-timeout × (maxRetries + 1)) + (delay × maxRetries)
+```
+
+Si el flujo encadena varias llamadas externas, multiplicar por el número de llamadas y
+verificar que el resultado sea compatible con cualquier SLA de la vía de entrada (AMQP, síncrono, etc.).
+Si un escenario de fallo queda deliberadamente fuera de cobertura (p. ej. cierre de conexión a
+mitad de transferencia), dejarlo anotado explícitamente como decisión consciente, no como omisión.
+
 ---
 
 ## 21. Organización de `application.properties`
@@ -1108,6 +1198,7 @@ Todo lo relacionado a una misma dependencia externa va junto: las 3 URLs por per
 - Cualquier valor distinto de `"000"` indica una condición anómala específica.
 - Los códigos son cadenas de tres dígitos (`String`) para compatibilidad con sistemas legados y para permitir sub-rangos futuros.
 - **Prohibido** devolver el HTTP status como valor de `codRespuesta` (ej. `"200"`, `"404"`, `"500"`).
+- **Implementación:** cada microservicio debe representar esta tabla como un único `enum` (ver patrón `CodigoRespuesta` en la sección 12.2), ubicado en un paquete neutral compartido entre capas. Prohibido escribir estos códigos como strings literales fuera del enum.
 
 ### 22.2 Tabla maestra de códigos
 

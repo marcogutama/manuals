@@ -110,6 +110,9 @@ En Linux puro, puedes usar **`/dev/tcp`** que es una funcionalidad nativa del sh
 ```bash
 bash -c "echo > /dev/tcp/10.16.191.33/8444" && echo "ABIERTO" || echo "CERRADO/FILTRADO"
 ```
+### Opcion para mapear todos los puertos accesibles a un servidor
+seq 1 65535 | xargs -P 50 -I{} bash -c \
+  'timeout 1 bash -c "echo > /dev/tcp/10.1.99.43/{}" 2>/dev/null && echo "Puerto {}: ABIERTO"'
 
 O con timeout para no quedarte esperando:
 ```bash
