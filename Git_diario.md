@@ -147,6 +147,44 @@ git diff dev:<archivo> qa:<archivo> # Otra forma de comparar el mismo archivo en
 
 ---
 
+## 📦 Generar y aplicar parches (compartir cambios sin commitear)
+
+> 💡 Útil para pasarle cambios locales a un compañero sin necesidad de subirlos a un remoto compartido.
+
+### Opción 1: Sin hacer `git add` antes
+```bash
+git diff HEAD > mis-cambios.patch
+```
+Incluye archivos modificados sin stage (` M`) y ya agregados (`A `).
+Los archivos **nuevos sin trackear** (`??`) NO se incluyen. Para asegurarte de incluir todo:
+```bash
+git add -A
+git diff HEAD > mis-cambios.patch    # solo actualiza el índice local, no crea ningún commit
+```
+
+### Aplicar el parche (compañero)
+```bash
+git apply --check mis-cambios.patch   # verifica que aplique sin conflictos
+git apply --stat mis-cambios.patch    # muestra resumen de archivos afectados
+git apply mis-cambios.patch           # aplica los cambios al working directory
+```
+
+### Opción 2: Formato "git nativo" (con metadata y autor)
+```bash
+git add -A
+git commit -m "WIP: descripción de cambios"
+git format-patch HEAD~1 --stdout > mis-cambios.patch
+```
+Ventaja: al aplicarse queda como un commit real en el historial del compañero (útil para `git log`).
+Desventaja: te queda un commit "WIP" local que después tendrías que reordenar o deshacer con `git reset --soft HEAD~1` si no querías commitear todavía.
+
+El compañero lo aplica con:
+```bash
+git am mis-cambios.patch
+```
+
+---
+
 ## ⏪ Revertir archivos y commits
 
 ### Restaurar un archivo a un commit anterior

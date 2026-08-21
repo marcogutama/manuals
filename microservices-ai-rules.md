@@ -466,11 +466,12 @@ throw new NotFoundException("Producto no encontrado");  // ❌
 JAX-RS despacha cada excepción al `ExceptionMapper<T>` cuyo tipo `T` sea el **más específico** que aplique — este mecanismo es nativo del spec, no requiere lógica de ordenamiento manual. Por eso está permitido y es preferible tener **varios mappers**, uno por familia de excepciones, en lugar de forzar toda la lógica en un único `ExceptionMapper<RuntimeException>` con un `switch`/`instanceof` gigante:
 
 - **A favor de varios mappers:** cada uno cumple el Principio de Responsabilidad Única, se testea de forma aislada, y agregar un nuevo tipo de excepción es una clase nueva (abierto/cerrado) en vez de tocar un `switch` que ya maneja varios casos.
-- **Requisito no negociable:** todos los mappers del proyecto —sin importar cuántos sean— deben tomar el valor de `codRespuesta` de un **único enum compartido** que represente el catálogo de la sección 22.2 (ver `CodigoRespuesta` más abajo). **Prohibido** escribir el código como string literal (`"200"`, `"900"`...) en más de un lugar; eso es lo que realmente rompe la consistencia entre microservicios, no la cantidad de clases mapper.
+- **Requisito no negociable:** todos los mappers del proyecto —sin importar cuántos sean— deben tomar el valor de `codRespuesta` de un **único enum compartido** que represente el catálogo de la sección 22.2 (ver `ResponseCode` más abajo). **Prohibido** escribir el código como string literal (`"200"`, `"900"`...) en más de un lugar; eso es lo que realmente rompe la consistencia entre microservicios, no la cantidad de clases mapper.
 
 ```java
 // Enum compartido — única fuente de verdad para codRespuesta (catálogo, sección 22.2)
-public enum CodigoRespuesta {
+// El nombre debe ser en inglés conforme a la sección 16 (Nomenclatura y Convenciones)
+public enum ResponseCode {
     SUCCESS("000"),
     VALIDATION_ERROR("100"),
     RESOURCE_NOT_FOUND("200"),
@@ -482,7 +483,7 @@ public enum CodigoRespuesta {
     // ... resto del catálogo de la sección 22.2
 
     private final String code;
-    CodigoRespuesta(String code) { this.code = code; }
+    ResponseCode(String code) { this.code = code; }
     public String code() { return code; }
 }
 
@@ -494,7 +495,7 @@ public class ValidationExceptionMapper implements ExceptionMapper<ConstraintViol
     public Response toResponse(ConstraintViolationException exception) {
         List<ApiResponse.Violation> violations = /* ... */;
         return Response.status(Response.Status.BAD_REQUEST)
-                .entity(ApiResponse.validationError("Constraint Violation", violations)) // usa CodigoRespuesta.VALIDATION_ERROR internamente
+                .entity(ApiResponse.validationError("Constraint Violation", violations)) // usa ResponseCode.VALIDATION_ERROR internamente
                 .build();
     }
 }
@@ -507,25 +508,39 @@ public class GlobalExceptionMapper implements ExceptionMapper<RuntimeException> 
     public Response toResponse(RuntimeException exception) {
         return switch (exception) {
             case ResourceNotFoundException rnfe -> buildResponse(Response.Status.NOT_FOUND,
-                    "Recurso no encontrado", rnfe.getMessage(), CodigoRespuesta.RESOURCE_NOT_FOUND);
+                    "Recurso no encontrado", rnfe.getMessage(), ResponseCode.RESOURCE_NOT_FOUND);
+            // WebApplicationException cubre NotFoundException, BadRequestException y cualquier
+            // otro error HTTP nativo de JAX-RS (404, 405, etc.) generado p.ej. por el escáner DAST.
+            // Se registra en debug para evitar ruido en los logs y se retorna el código HTTP original.
+            case WebApplicationException wae -> {
+                Log.debugf("Excepción HTTP JAX-RS (ej. 404, 405): %s", wae.getMessage());
+                yield Response.status(wae.getResponse().getStatus())
+                        .type(MediaType.APPLICATION_JSON)
+                        .entity(ApiResponse.error(
+                                "Recurso no encontrado o método no permitido",
+                                wae.getMessage(),
+                                ResponseCode.RESOURCE_NOT_FOUND.code()))
+                        .build();
+            }
             default -> buildResponse(Response.Status.INTERNAL_SERVER_ERROR,
                     "Ha ocurrido un error inesperado. Por favor contacte al soporte técnico.",
-                    exception.getMessage(), CodigoRespuesta.INTERNAL_ERROR);
+                    exception.getMessage(), ResponseCode.INTERNAL_ERROR);
         };
     }
 
     private Response buildResponse(Response.Status status, String msgUsuario,
-                                   String msgTecnico, CodigoRespuesta codigo) {
+                                   String msgTecnico, ResponseCode codigo) {
         return Response.status(status)
+                .type(MediaType.APPLICATION_JSON)
                 .entity(ApiResponse.error(msgUsuario, msgTecnico, codigo.code()))
                 .build();
     }
 }
 ```
 
-El mapper (o mappers) es el **único punto** que conoce JAX-RS y traduce a HTTP. Las capas de servicio y cliente nunca deben conocer `Response` ni códigos HTTP — pero sí pueden (y deben) referenciar `CodigoRespuesta` cuando necesiten expresar un resultado de negocio, ya que es un código de dominio, no un detalle de transporte HTTP.
+El mapper (o mappers) es el **único punto** que conoce JAX-RS y traduce a HTTP. Las capas de servicio y cliente nunca deben conocer `Response` ni códigos HTTP — pero sí pueden (y deben) referenciar `ResponseCode` cuando necesiten expresar un resultado de negocio, ya que es un código de dominio, no un detalle de transporte HTTP.
 
-> **Nota de ubicación:** `CodigoRespuesta` es consumido por capas de dominio, adaptadores de proveedores externos y la capa REST por igual. Para no crear una dependencia inversa (dominio → presentación), el enum debe vivir en un paquete neutral compartido (ej. `util` o `common`), nunca dentro del paquete `resource`/`rest` de la capa de presentación.
+> **Nota de ubicación:** `ResponseCode` es consumido por capas de dominio, adaptadores de proveedores externos y la capa REST por igual. Para no crear una dependencia inversa (dominio → presentación), el enum debe vivir en un paquete neutral compartido (ej. `util` o `common`), nunca dentro del paquete `resource`/`rest` de la capa de presentación.
 
 > **Sobre la precedencia con `ConstraintViolationException`:** al tener su propio mapper (`ValidationExceptionMapper implements ExceptionMapper<ConstraintViolationException>`), JAX-RS lo selecciona automáticamente por ser más específico que `ExceptionMapper<RuntimeException>` — no hace falta ningún `instanceof` ni orden manual para este caso.
 
@@ -1198,7 +1213,7 @@ Todo lo relacionado a una misma dependencia externa va junto: las 3 URLs por per
 - Cualquier valor distinto de `"000"` indica una condición anómala específica.
 - Los códigos son cadenas de tres dígitos (`String`) para compatibilidad con sistemas legados y para permitir sub-rangos futuros.
 - **Prohibido** devolver el HTTP status como valor de `codRespuesta` (ej. `"200"`, `"404"`, `"500"`).
-- **Implementación:** cada microservicio debe representar esta tabla como un único `enum` (ver patrón `CodigoRespuesta` en la sección 12.2), ubicado en un paquete neutral compartido entre capas. Prohibido escribir estos códigos como strings literales fuera del enum.
+- **Implementación:** cada microservicio debe representar esta tabla como un único `enum` llamado `ResponseCode` (en inglés, conforme a la sección 16), ubicado en el paquete `util`. Prohibido escribir estos códigos como strings literales fuera del enum.
 
 ### 22.2 Tabla maestra de códigos
 
