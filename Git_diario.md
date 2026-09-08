@@ -126,6 +126,15 @@ git show <commit-hash>                          # Ver commit completo con diff
 git show --name-only <commit-hash>              # Solo archivos modificados en ese commit
 ```
 
+### Buscar cuándo apareció o desapareció un texto (pickaxe)
+> 💡 Ideal para responder "¿en qué commit se quitó/agregó X?" (ej: una dependencia en `pom.xml`).
+```bash
+git log -S"quarkus-opentelemetry" -- pom.xml            # Commits donde cambió el número de veces que aparece el texto
+git log -S"quarkus-opentelemetry" -p -- pom.xml         # Igual pero mostrando el diff (para ver si se agregó o quitó)
+git log -S"quarkus-opentelemetry" --oneline -- pom.xml  # Resumen: solo hash y título del commit
+git log -G"quarkus-.*telemetry" -p -- pom.xml           # -G usa regex sobre las líneas del diff
+```
+
 ---
 
 ## 🔍 Comparar diferencias
