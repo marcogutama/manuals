@@ -5,3 +5,4 @@ ctrl + r para ver artefactos creados
 
 Ruta artifactos (planes, walkthroughs, tareas, imágenes generadas):
 ~/.gemini/antigravity/brain/
+~/.gemini/antigravity-cli/brain/
