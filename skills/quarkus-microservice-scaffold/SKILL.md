@@ -1,24 +1,117 @@
 ---
 name: quarkus-microservice-scaffold
-description: Crea un microservicio Quarkus nuevo desde cero conforme al estándar corporativo, o valida que uno existente tenga la estructura completa. Cubre elección de arquitectura (capas vs hexagonal), estructura de paquetes, clases base obligatorias, asignación de puerto desde el inventario, organización de application.properties, y el checklist completo de arranque. Úsalo cuando el usuario pida crear un microservicio nuevo, hacer scaffolding, o verificar que un proyecto Quarkus cumple con la estructura estándar.
+description: Crea un microservicio Quarkus nuevo desde cero conforme al estándar corporativo, o valida que uno existente tenga la estructura completa. Cubre el comando quarkus create app con sus extensiones, la convención de nombres del artifactId, elección de arquitectura (capas vs hexagonal), estructura de paquetes, clases base obligatorias, asignación de puerto desde el inventario PORT_MANAGEMENT.md, organización de application.properties, y el checklist completo de arranque. Úsalo cuando el usuario pida crear un microservicio nuevo, hacer scaffolding, elegir el nombre de un proyecto Quarkus, o verificar que un proyecto cumple con la estructura estándar.
 ---
 
 # Scaffolding de Microservicio Quarkus
 
-Referencia normativa: `microservices-ai-rules.md`. Documentos obligatorios: `PORT_MANAGEMENT.md`,
-`RESPONSE_CODES.md`.
-
 Stack: Quarkus 3.x · Mutiny · MicroProfile · Jakarta EE · Java 25 · despliegue en OpenShift.
+
+## Ubicación de los documentos de referencia
+
+Los documentos viven **fuera** del repositorio del microservicio, en el directorio de estándares:
+
+```
+/home/marco/Documents/manuals/
+├── microservices-ai-rules.md   # norma canónica
+├── PORT_MANAGEMENT.md          # inventario de puertos — leer y actualizar
+└── RESPONSE_CODES.md           # catálogo de codRespuesta
+```
+
+Léelos con rutas absolutas: `/home/marco/Documents/manuals/PORT_MANAGEMENT.md`. **No** los copies al
+repositorio del microservicio: son inventarios compartidos y una copia local deriva de inmediato.
+
+Leer fuera del proyecto puede pedir confirmación de permiso (`external_directory`). Si se deniega, pregunta al
+usuario el puerto a usar en lugar de inventarlo, y avísale que `PORT_MANAGEMENT.md` queda sin actualizar.
 
 ## Antes de escribir código
 
-1. **Leer `PORT_MANAGEMENT.md`** y elegir un puerto libre del rango correspondiente al tipo de servicio
-   (80xx simuladores/workers, 15xxx core/utility, 16xxx dominio, 17xxx agregadores, 18xxx adaptadores,
+1. **Leer `/home/marco/Documents/manuals/PORT_MANAGEMENT.md`** y elegir un puerto libre del rango del tipo de
+   servicio (80xx simuladores/workers, 15xxx core/utility, 16xxx dominio, 17xxx agregadores, 18xxx adaptadores,
    28xxx orquestadores L1, 29xxx orquestadores L2/BFF). **Actualizar el inventario en el mismo PR**, no después:
    los conflictos que ya existen en ese archivo son consecuencia de actualizarlo tarde.
-2. **Leer `RESPONSE_CODES.md`** para el enum `ResponseCode`. No inventar códigos.
-3. **Decidir la arquitectura** con el criterio de abajo. Sobre-arquitecturar un CRUD con hexagonal es tan
+2. **Leer `/home/marco/Documents/manuals/RESPONSE_CODES.md`** para el enum `ResponseCode`. No inventar códigos.
+3. **Decidir el nombre** con la convención de la sección siguiente.
+4. **Decidir la arquitectura** con el criterio de abajo. Sobre-arquitecturar un CRUD con hexagonal es tan
    perjudicial como no arquitecturar un dominio complejo.
+
+## Comando de creación
+
+```bash
+quarkus create app ec.fin.baustro:<artifact-id> --extension quarkus-rest --no-code
+```
+
+- `--no-code` es **obligatorio**: el código de ejemplo que genera Quarkus (`GreetingResource`) incumple el
+  estándar y hay que borrarlo. Mejor no generarlo.
+- `quarkus-rest` es RESTEasy Reactive, la extensión correcta. **No** usar `quarkus-resteasy` (clásico,
+  bloqueante): rompe el requisito reactivo de la sección 1 de la norma.
+- Ejecutar el comando **en el directorio padre**: crea una carpeta con el nombre del `artifactId`.
+
+Alternativa con Maven si el CLI de Quarkus no está disponible:
+
+```bash
+mvn io.quarkus.platform:quarkus-maven-plugin:create \
+  -DprojectGroupId=ec.fin.baustro \
+  -DprojectArtifactId=<artifact-id> \
+  -Dextensions=quarkus-rest \
+  -DnoCode
+```
+
+### Extensiones al crear
+
+Añadir de entrada las que el estándar exige, para no tener que agregarlas después:
+
+```bash
+# Servicio REST base (siempre)
+--extension quarkus-rest,quarkus-rest-jackson,quarkus-smallrye-health,quarkus-smallrye-openapi,quarkus-hibernate-validator
+
+# Si consume o publica en colas
+--extension quarkus-smallrye-reactive-messaging-amqp
+
+# Si llama a otros servicios (obliga a fault tolerance, sección 20)
+--extension quarkus-rest-client,quarkus-rest-client-jackson,quarkus-smallrye-fault-tolerance
+
+# Si requiere autenticación JWT (sección 17.2)
+--extension quarkus-smallrye-jwt,quarkus-security
+```
+
+`quarkus-smallrye-health` es obligatorio en todo servicio: la norma prohíbe un `HealthController` manual.
+
+### Convención del `artifactId`
+
+El `artifactId` se convierte en el nombre del JAR y del directorio del proyecto. Reglas de Maven:
+
+| Regla | Correcto | Incorrecto |
+|---|---|---|
+| Solo minúsculas | `whatsapp-delivery-consumer` | `WhatsAppDeliveryConsumer` |
+| Palabras separadas por guiones | `user-management-service` | `userManagementService` |
+| Sin guiones bajos | `payment-gateway` | `payment_gateway` |
+| Sin versión en el nombre | `report-generator` | `report-generator-v2` |
+
+```bash
+# ❌ Evitar
+quarkus create app ec.fin.baustro:WhatsAppDeliveryConsumer --extension quarkus-rest --no-code
+
+# ✅ Correcto
+quarkus create app ec.fin.baustro:whatsapp-delivery-consumer --extension quarkus-rest --no-code
+```
+
+PascalCase y camelCase se reservan para las **clases Java** dentro del proyecto (sección 16 de la norma).
+
+El `groupId` es siempre `ec.fin.baustro`, y el paquete base resultante es `ec.fin.baustro.<dominio>`.
+
+### Después de crear
+
+Quarkus genera un proyecto que aún no cumple el estándar. Ajustes inmediatos:
+
+1. **Java 25** en el `pom.xml` (`maven.compiler.release`): el arquetipo suele fijar 17 o 21.
+2. **`%dev.quarkus.http.port`** con el puerto del inventario.
+3. **Borrar** `src/main/resources/META-INF/resources/index.html` si se generó.
+4. **`.gitignore`** — verificar que incluya `target/`.
+5. Añadir las dependencias de test y el `jacoco-maven-plugin` con el gate (skill `quarkus-testing`).
+6. Crear el `AGENTS.md` del repositorio desde
+   `/home/marco/Documents/manuals/AGENTS-microservicio-template.md`.
+7. Verificar que arranca: `./mvnw quarkus:dev` con el `JAVA_HOME` de Java 25.
 
 ## Elección de arquitectura
 
@@ -147,7 +240,11 @@ producción con una credencial publicada en el repo.
 ## Checklist de arranque
 
 ```
+[ ] artifactId en minúsculas con guiones, sin versión, groupId ec.fin.baustro
+[ ] Proyecto creado con --no-code y quarkus-rest (no quarkus-resteasy)
+[ ] maven.compiler.release ajustado a 25
 [ ] Puerto elegido del rango correcto y PORT_MANAGEMENT.md actualizado en este PR
+[ ] AGENTS.md copiado desde la plantilla y completado
 [ ] Arquitectura elegida con criterio explícito y estructura de paquetes creada
 [ ] CorrelationContext + Outcome + LogSanitizer + CorrelationFilter + CorrelationClientFilter
 [ ] AuditLogger con categoría "audit" y min-level=INFO

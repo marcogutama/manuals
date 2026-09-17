@@ -5,8 +5,9 @@ description: Implementa o revisa logging, trazabilidad y auditoría en microserv
 
 # Logging, Trazabilidad y Auditoría — Quarkus
 
-Referencia normativa: `microservices-ai-rules.md` secciones 18.x. Este documento contiene las reglas
-accionables; consulta la referencia completa solo si necesitas el detalle de una decisión.
+Referencia normativa: `/home/marco/Documents/manuals/microservices-ai-rules.md`, secciones 18.x. Este
+documento contiene las reglas accionables; consulta la norma completa (ruta absoluta, vive fuera del
+repositorio) solo si necesitas el detalle de una decisión.
 
 ## Requisito de seguridad (no negociable)
 

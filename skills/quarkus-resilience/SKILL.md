@@ -5,7 +5,8 @@ description: Implementa o revisa resiliencia y comunicación entre microservicio
 
 # Resiliencia y Comunicación — Quarkus
 
-Referencia normativa: `microservices-ai-rules.md` secciones 20, 24, 25.
+Referencia normativa: `/home/marco/Documents/manuals/microservices-ai-rules.md`, secciones 20, 24, 25 (vive
+fuera del repositorio; ruta absoluta).
 
 ## Bloqueo del event loop (revisar primero)
 

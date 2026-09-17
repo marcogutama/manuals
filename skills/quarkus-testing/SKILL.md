@@ -5,7 +5,8 @@ description: Escribe o revisa pruebas de microservicios Quarkus según el están
 
 # Pruebas y Cobertura — Quarkus
 
-Referencia normativa: `microservices-ai-rules.md` sección 10.
+Referencia normativa: `/home/marco/Documents/manuals/microservices-ai-rules.md`, sección 10 (vive fuera del
+repositorio; ruta absoluta).
 
 ## Umbral obligatorio
 

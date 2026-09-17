@@ -127,26 +127,88 @@ acceso al clúster.
 
 ---
 
-## 4. Arrancar en un repositorio de microservicio
+## 4. Crear un microservicio nuevo
+
+### 4.1 Cómo encuentra la IA los documentos
+
+Los documentos de estándar viven **fuera** del repositorio del microservicio, en `~/Documents/manuals/`. Las
+skills los referencian con **ruta absoluta** (`/home/marco/Documents/manuals/PORT_MANAGEMENT.md`), así que la
+IA sabe dónde buscarlos sin necesidad de copiarlos al proyecto.
+
+**No los copies al repositorio del microservicio.** `PORT_MANAGEMENT.md` y `RESPONSE_CODES.md` son inventarios
+compartidos: una copia local deriva del original en cuanto alguien añade un puerto o un código en el otro
+lugar, y entonces hay dos verdades.
+
+Consecuencia práctica: leer fuera del directorio del proyecto puede pedir confirmación de permiso
+(`external_directory` en OpenCode). Es esperable; concédela. Si se deniega, la skill está instruida para
+preguntar el puerto en lugar de inventarlo, y para avisar que `PORT_MANAGEMENT.md` queda sin actualizar.
+
+### 4.2 Comando de creación
 
 ```bash
-# 1. Copiar la plantilla como AGENTS.md
-cp ~/Documents/manuals/AGENTS-microservicio-template.md /ruta/al/microservicio/AGENTS.md
+quarkus create app ec.fin.baustro:<artifact-id> --extension quarkus-rest --no-code
 ```
 
-**2. Completar los marcadores.** La plantilla tiene tres puntos que dependen del servicio:
+- **`--no-code` obligatorio.** El código de ejemplo (`GreetingResource`) incumple el estándar y hay que
+  borrarlo; mejor no generarlo.
+- **`quarkus-rest`**, que es RESTEasy Reactive. No `quarkus-resteasy` (clásico, bloqueante): rompe el
+  requisito reactivo.
+- Ejecutar **en el directorio padre**: crea una carpeta con el nombre del `artifactId`.
 
-- El nombre del microservicio y su puerto local (tomado de `PORT_MANAGEMENT.md`).
-- `<!-- Completar -->` en **Arquitectura de este servicio**: capas u hexagonal, con el criterio de la
-  decisión, y las dependencias externas con su propósito.
-- `<!-- Completar -->` en **Presupuesto de tiempo**: el peor caso por cada llamada externa, con la fórmula
-  `(read-timeout × (maxRetries + 1)) + (delay × maxRetries)`, verificado contra el SLA de la vía de entrada.
+Extensiones que conviene añadir de entrada, según lo que el servicio vaya a hacer:
 
-**3. Commitear el `AGENTS.md`** al repositorio. Es documentación compartida del equipo, no configuración
-personal.
+```bash
+# Base de todo servicio REST
+--extension quarkus-rest,quarkus-rest-jackson,quarkus-smallrye-health,quarkus-smallrye-openapi,quarkus-hibernate-validator
 
-**4. Verificar que las skills responden.** Abrir una sesión en el repo y pedir algo del dominio de una skill
-(*"revisa la configuración de logging"*) para confirmar que se carga.
+# Si consume o publica en colas
+--extension quarkus-smallrye-reactive-messaging-amqp
+
+# Si llama a otros servicios
+--extension quarkus-rest-client,quarkus-rest-client-jackson,quarkus-smallrye-fault-tolerance
+
+# Si requiere JWT
+--extension quarkus-smallrye-jwt,quarkus-security
+```
+
+### 4.3 Convención del `artifactId`
+
+El `artifactId` se convierte en el nombre del JAR y del directorio del proyecto.
+
+| Regla | Correcto | Incorrecto |
+|---|---|---|
+| Solo minúsculas | `whatsapp-delivery-consumer` | `WhatsAppDeliveryConsumer` |
+| Palabras separadas por guiones | `user-management-service` | `userManagementService` |
+| Sin guiones bajos | `payment-gateway` | `payment_gateway` |
+| Sin versión en el nombre | `report-generator` | `report-generator-v2` |
+
+PascalCase y camelCase se reservan para las **clases Java** dentro del proyecto. El `groupId` es siempre
+`ec.fin.baustro`.
+
+### 4.4 Pasos posteriores
+
+Quarkus genera un proyecto que aún no cumple el estándar:
+
+1. **Java 25** en `maven.compiler.release` del `pom.xml` — el arquetipo suele fijar 17 o 21.
+2. **`%dev.quarkus.http.port`** con el puerto tomado de `PORT_MANAGEMENT.md`, y actualizar ese inventario en
+   el mismo PR.
+3. **Copiar la plantilla como `AGENTS.md`:**
+   ```bash
+   cp ~/Documents/manuals/AGENTS-microservicio-template.md /ruta/al/microservicio/AGENTS.md
+   ```
+4. **Completar los marcadores** de la plantilla: nombre y puerto del servicio; `<!-- Completar -->` en
+   *Arquitectura de este servicio* (capas u hexagonal, con el criterio de la decisión y las dependencias
+   externas); `<!-- Completar -->` en *Presupuesto de tiempo* (peor caso por llamada externa con la fórmula
+   `(read-timeout × (maxRetries + 1)) + (delay × maxRetries)`, verificado contra el SLA de entrada).
+5. **Commitear el `AGENTS.md`** al repositorio: es documentación compartida del equipo, no configuración
+   personal.
+6. **Añadir las dependencias de test y el gate de JaCoCo** (skill `quarkus-testing`).
+7. **Verificar que arranca:** `./mvnw quarkus:dev` con el `JAVA_HOME` de Java 25.
+8. **Confirmar que las skills responden:** pedir algo del dominio de una skill (*"revisa la configuración de
+   logging"*) y ver que se carga.
+
+Lo más simple es pedirle a la IA que cargue la skill `quarkus-microservice-scaffold` y le pase el nombre y
+propósito del servicio: tiene el comando, las extensiones, la convención y el checklist completo.
 
 ---
 
@@ -261,7 +323,7 @@ Cuando dos fuentes se contradicen, este es el orden:
 
 | Necesito... | Uso |
 |---|---|
-| Crear un microservicio nuevo | Skill `quarkus-microservice-scaffold` + copiar la plantilla de `AGENTS.md` |
+| Crear un microservicio nuevo | Skill `quarkus-microservice-scaffold` (trae el comando `quarkus create app`, extensiones y convención de nombres) + copiar la plantilla de `AGENTS.md` |
 | Implementar o revisar logging y auditoría | Skill `quarkus-logging-audit` |
 | Diseñar un endpoint | Skill `quarkus-rest-contract` + `RESPONSE_CODES.md` |
 | Configurar un cliente REST externo | Skill `quarkus-resilience` |
