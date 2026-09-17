@@ -18,7 +18,7 @@ cualquier cambio.
 Los documentos del estándar viven **fuera de este repositorio**, en `/home/marco/Documents/manuals/`. Se leen
 con ruta absoluta; no se copian al proyecto (son inventarios compartidos y una copia local deriva).
 
-La norma completa está en `/home/marco/Documents/manuals/microservices-ai-rules.md`. **No la cargues entera**:
+La norma completa está en `/home/marco/Documents/manuals/microservicios/microservices-ai-rules.md`. **No la cargues entera**:
 usa las skills, que contienen las reglas accionables por dominio.
 
 | Tema del trabajo | Skill a cargar |
@@ -33,8 +33,8 @@ Antes de abrir el PR: `@quarkus-reviewer` revisa el cambio contra el estándar.
 
 Documentos de consulta obligatoria:
 
-- `/home/marco/Documents/manuals/RESPONSE_CODES.md` — catálogo de `codRespuesta`. No inventar códigos.
-- `/home/marco/Documents/manuals/PORT_MANAGEMENT.md` — inventario de puertos. Actualizar en el mismo PR que
+- `/home/marco/Documents/manuals/microservicios/RESPONSE_CODES.md` — catálogo de `codRespuesta`. No inventar códigos.
+- `/home/marco/Documents/manuals/microservicios/PORT_MANAGEMENT.md` — inventario de puertos. Actualizar en el mismo PR que
   asigna uno.
 
 Este proyecto se creó con:

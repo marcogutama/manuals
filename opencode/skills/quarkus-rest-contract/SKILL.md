@@ -5,8 +5,8 @@ description: Diseña o revisa el contrato REST de microservicios Quarkus según 
 
 # Contrato REST — Quarkus
 
-Referencia normativa: `/home/marco/Documents/manuals/microservices-ai-rules.md`, secciones 3, 4, 6, 12, 14,
-15, 22. Catálogo de códigos (fuente de verdad): `/home/marco/Documents/manuals/RESPONSE_CODES.md`.
+Referencia normativa: `/home/marco/Documents/manuals/microservicios/microservices-ai-rules.md`, secciones 3, 4, 6, 12, 14,
+15, 22. Catálogo de códigos (fuente de verdad): `/home/marco/Documents/manuals/microservicios/RESPONSE_CODES.md`.
 
 Ambos viven **fuera** del repositorio del microservicio: léelos con ruta absoluta, no los copies al proyecto.
 

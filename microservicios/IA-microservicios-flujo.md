@@ -131,9 +131,10 @@ acceso al clúster.
 
 ### 4.1 Cómo encuentra la IA los documentos
 
-Los documentos de estándar viven **fuera** del repositorio del microservicio, en `~/Documents/manuals/`. Las
-skills los referencian con **ruta absoluta** (`/home/marco/Documents/manuals/PORT_MANAGEMENT.md`), así que la
-IA sabe dónde buscarlos sin necesidad de copiarlos al proyecto.
+Los documentos de estándar viven **fuera** del repositorio del microservicio, en
+`~/Documents/manuals/microservicios/`. Las skills los referencian con **ruta absoluta**
+(`/home/marco/Documents/manuals/microservicios/PORT_MANAGEMENT.md`), así que la IA sabe dónde buscarlos sin
+necesidad de copiarlos al proyecto.
 
 **No los copies al repositorio del microservicio.** `PORT_MANAGEMENT.md` y `RESPONSE_CODES.md` son inventarios
 compartidos: una copia local deriva del original en cuanto alguien añade un puerto o un código en el otro
@@ -194,7 +195,7 @@ Quarkus genera un proyecto que aún no cumple el estándar:
    el mismo PR.
 3. **Copiar la plantilla como `AGENTS.md`:**
    ```bash
-   cp ~/Documents/manuals/AGENTS-microservicio-template.md /ruta/al/microservicio/AGENTS.md
+   cp ~/Documents/manuals/microservicios/AGENTS-microservicio-template.md /ruta/al/microservicio/AGENTS.md
    ```
 4. **Completar los marcadores** de la plantilla: nombre y puerto del servicio; `<!-- Completar -->` en
    *Arquitectura de este servicio* (capas u hexagonal, con el criterio de la decisión y las dependencias
@@ -231,34 +232,47 @@ propósito del servicio: tiene el comando, las extensiones, la convención y el 
     └── quarkus-reviewer.md
 ```
 
-### Repositorio `manuals` (copia versionada para compartir)
+### Repositorio `manuals` (fuente versionada)
 
 ```
 ~/Documents/manuals/
-├── microservices-ai-rules.md               # norma canónica
-├── RESPONSE_CODES.md                       # catálogo de codRespuesta
-├── PORT_MANAGEMENT.md                      # inventario de puertos
-├── AGENTS-microservicio-template.md        # plantilla de AGENTS.md
-├── IA-microservicios-flujo.md              # este documento
-├── skills/                                 # copia de las skills
-└── agents/                                 # copia del subagente
+├── README.md                               # índice general del repositorio
+├── <apuntes generales de desarrollo>       # Git_diario.md, Linux_diario.md, PDFs, etc.
+│
+├── microservicios/                         # estándar de ingeniería
+│   ├── README.md                           # índice de esta carpeta
+│   ├── microservices-ai-rules.md           # norma canónica
+│   ├── RESPONSE_CODES.md                   # catálogo de codRespuesta
+│   ├── PORT_MANAGEMENT.md                  # inventario de puertos
+│   ├── AGENTS-microservicio-template.md    # plantilla de AGENTS.md
+│   └── IA-microservicios-flujo.md          # este documento
+│
+└── opencode/                               # configuración de la herramienta
+    ├── skills/                             # espejo de ~/.config/opencode/skills
+    └── agents/                             # espejo de ~/.config/opencode/agents
 ```
+
+La separación es deliberada: `microservicios/` es **documentación de ingeniería** que sobrevive a cualquier
+herramienta de IA; `opencode/` es **configuración de OpenCode** y desaparecería si se cambiara de herramienta.
+Mezclarlas haría que el estándar pareciera un accesorio de la herramienta, cuando es al revés.
 
 ### Sobre la duplicación
 
 Las skills y el subagente existen en dos lugares: `~/.config/opencode/` es lo que OpenCode lee, y
-`manuals/skills/` es la copia versionada en git para compartir con el equipo.
+`manuals/opencode/` es la copia versionada en git para compartir con el equipo. La estructura interna es
+idéntica (`skills/<nombre>/SKILL.md`, `agents/<nombre>.md`), de modo que sincronizar es una copia directa sin
+reorganizar nada.
 
 **Son archivos independientes.** Al editar uno hay que sincronizar el otro:
 
 ```bash
 # manuals → config (después de un git pull)
-cp -r ~/Documents/manuals/skills/quarkus-* ~/.config/opencode/skills/
-cp ~/Documents/manuals/agents/quarkus-reviewer.md ~/.config/opencode/agents/
+cp -r ~/Documents/manuals/opencode/skills/quarkus-* ~/.config/opencode/skills/
+cp ~/Documents/manuals/opencode/agents/quarkus-reviewer.md ~/.config/opencode/agents/
 
 # config → manuals (después de editar en caliente)
-cp -r ~/.config/opencode/skills/quarkus-* ~/Documents/manuals/skills/
-cp ~/.config/opencode/agents/quarkus-reviewer.md ~/Documents/manuals/agents/
+cp -r ~/.config/opencode/skills/quarkus-* ~/Documents/manuals/opencode/skills/
+cp ~/.config/opencode/agents/quarkus-reviewer.md ~/Documents/manuals/opencode/agents/
 ```
 
 Alternativa: reemplazar las copias de `~/.config/opencode/` por symlinks a `manuals/`. Elimina la

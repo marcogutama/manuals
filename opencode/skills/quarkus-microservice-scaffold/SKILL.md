@@ -12,25 +12,26 @@ Stack: Quarkus 3.x · Mutiny · MicroProfile · Jakarta EE · Java 25 · desplie
 Los documentos viven **fuera** del repositorio del microservicio, en el directorio de estándares:
 
 ```
-/home/marco/Documents/manuals/
-├── microservices-ai-rules.md   # norma canónica
-├── PORT_MANAGEMENT.md          # inventario de puertos — leer y actualizar
-└── RESPONSE_CODES.md           # catálogo de codRespuesta
+/home/marco/Documents/manuals/microservicios/
+├── microservices-ai-rules.md          # norma canónica
+├── PORT_MANAGEMENT.md                 # inventario de puertos — leer y actualizar
+├── RESPONSE_CODES.md                  # catálogo de codRespuesta
+└── AGENTS-microservicio-template.md   # plantilla de AGENTS.md del repo
 ```
 
-Léelos con rutas absolutas: `/home/marco/Documents/manuals/PORT_MANAGEMENT.md`. **No** los copies al
-repositorio del microservicio: son inventarios compartidos y una copia local deriva de inmediato.
+Léelos con rutas absolutas: `/home/marco/Documents/manuals/microservicios/PORT_MANAGEMENT.md`. **No** los
+copies al repositorio del microservicio: son inventarios compartidos y una copia local deriva de inmediato.
 
 Leer fuera del proyecto puede pedir confirmación de permiso (`external_directory`). Si se deniega, pregunta al
 usuario el puerto a usar en lugar de inventarlo, y avísale que `PORT_MANAGEMENT.md` queda sin actualizar.
 
 ## Antes de escribir código
 
-1. **Leer `/home/marco/Documents/manuals/PORT_MANAGEMENT.md`** y elegir un puerto libre del rango del tipo de
+1. **Leer `/home/marco/Documents/manuals/microservicios/PORT_MANAGEMENT.md`** y elegir un puerto libre del rango del tipo de
    servicio (80xx simuladores/workers, 15xxx core/utility, 16xxx dominio, 17xxx agregadores, 18xxx adaptadores,
    28xxx orquestadores L1, 29xxx orquestadores L2/BFF). **Actualizar el inventario en el mismo PR**, no después:
    los conflictos que ya existen en ese archivo son consecuencia de actualizarlo tarde.
-2. **Leer `/home/marco/Documents/manuals/RESPONSE_CODES.md`** para el enum `ResponseCode`. No inventar códigos.
+2. **Leer `/home/marco/Documents/manuals/microservicios/RESPONSE_CODES.md`** para el enum `ResponseCode`. No inventar códigos.
 3. **Decidir el nombre** con la convención de la sección siguiente.
 4. **Decidir la arquitectura** con el criterio de abajo. Sobre-arquitecturar un CRUD con hexagonal es tan
    perjudicial como no arquitecturar un dominio complejo.
@@ -110,7 +111,7 @@ Quarkus genera un proyecto que aún no cumple el estándar. Ajustes inmediatos:
 4. **`.gitignore`** — verificar que incluya `target/`.
 5. Añadir las dependencias de test y el `jacoco-maven-plugin` con el gate (skill `quarkus-testing`).
 6. Crear el `AGENTS.md` del repositorio desde
-   `/home/marco/Documents/manuals/AGENTS-microservicio-template.md`.
+   `/home/marco/Documents/manuals/microservicios/AGENTS-microservicio-template.md`.
 7. Verificar que arranca: `./mvnw quarkus:dev` con el `JAVA_HOME` de Java 25.
 
 ## Elección de arquitectura

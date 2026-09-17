@@ -1,16 +1,23 @@
 # manuals
 Manuals related to software development
 
-## Microservicios Quarkus
+Apuntes, guías y material de referencia de desarrollo.
 
-Punto de entrada: **[IA-microservicios-flujo.md](IA-microservicios-flujo.md)** — explica cómo encajan los
-documentos, las skills y el subagente de revisión.
+## Estructura
 
-| Documento | Rol |
+| Carpeta | Contenido |
 |---|---|
-| [IA-microservicios-flujo.md](IA-microservicios-flujo.md) | Cómo trabajar con IA: capas, skills, subagente, arranque de un repo |
-| [microservices-ai-rules.md](microservices-ai-rules.md) | Norma canónica del estándar de desarrollo |
-| [RESPONSE_CODES.md](RESPONSE_CODES.md) | Catálogo maestro de `codRespuesta` |
-| [PORT_MANAGEMENT.md](PORT_MANAGEMENT.md) | Inventario de puertos para desarrollo local |
-| [AGENTS-microservicio-template.md](AGENTS-microservicio-template.md) | Plantilla de `AGENTS.md` para cada repositorio |
-| `skills/`, `agents/` | Copia versionada de las skills y el subagente de OpenCode |
+| [`microservicios/`](microservicios/) | Estándar de ingeniería para microservicios Quarkus: norma, catálogos y guía del flujo de trabajo con IA |
+| [`opencode/`](opencode/) | Skills y subagentes de OpenCode (espejo de `~/.config/opencode`) |
+| `Cheat sheets/` | Chuletas en PDF (git, maven, vim, grep, sql) |
+| `otros/` | Documentos varios |
+
+En la raíz quedan los apuntes generales por tema: `Git_diario.md`, `Linux_diario.md`, `Docker_diario.md`,
+`Vim_diario.md`, `quarkus_commands.md`, y los libros y manuales en PDF.
+
+## Microservicios
+
+Punto de entrada: **[microservicios/IA-microservicios-flujo.md](microservicios/IA-microservicios-flujo.md)** —
+explica cómo encajan la norma, las skills y el subagente de revisión, y cómo arrancar un microservicio nuevo.
+
+Índice de la carpeta: [microservicios/README.md](microservicios/README.md).

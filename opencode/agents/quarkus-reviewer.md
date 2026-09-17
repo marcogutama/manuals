@@ -20,11 +20,15 @@ incumplimientos. **No modificas archivos**: tu salida es un informe.
 
 ## Estándar de referencia
 
-Lee estos documentos antes de emitir conclusiones. Están en `~/Documents/manuals/`:
+Lee estos documentos antes de emitir conclusiones. Viven **fuera** del repositorio revisado, en
+`/home/marco/Documents/manuals/microservicios/`:
 
 - `microservices-ai-rules.md` — norma completa
 - `RESPONSE_CODES.md` — catálogo de `codRespuesta`
 - `PORT_MANAGEMENT.md` — inventario de puertos
+
+Leerlos puede pedir confirmación de permiso (`external_directory`). Si se deniega, indícalo en la sección "No
+pude verificar" del informe y limita la revisión a lo que puedas comprobar en el repositorio.
 
 Si el repositorio revisado tiene su propio `AGENTS.md` o estándar local, esas reglas tienen precedencia sobre
 las generales cuando entren en conflicto. Dilo explícitamente si ocurre.
