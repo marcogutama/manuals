@@ -52,7 +52,7 @@ tema, y las reglas no negociables condensadas. Unas 100 líneas.
 **Por qué existe:** es lo único que está garantizado en contexto. Sin él, la IA no sabe que hay un estándar
 que cumplir.
 
-**Cómo se crea:** copiar `AGENTS-microservicio-template.md` (ver sección 4).
+**Cómo se crea:** copiar `AGENTS.template.md` (ver sección 4).
 
 ### Capa 2 — Skills
 
@@ -195,7 +195,7 @@ Quarkus genera un proyecto que aún no cumple el estándar:
    el mismo PR.
 3. **Copiar la plantilla como `AGENTS.md`:**
    ```bash
-   cp ~/Documents/manuals/microservicios/AGENTS-microservicio-template.md /ruta/al/microservicio/AGENTS.md
+   cp ~/Documents/manuals/microservicios/AGENTS.template.md /ruta/al/microservicio/AGENTS.md
    ```
 4. **Completar los marcadores** de la plantilla: nombre y puerto del servicio; `<!-- Completar -->` en
    *Arquitectura de este servicio* (capas u hexagonal, con el criterio de la decisión y las dependencias
@@ -244,8 +244,8 @@ propósito del servicio: tiene el comando, las extensiones, la convención y el 
 │   ├── microservices-ai-rules.md           # norma canónica
 │   ├── RESPONSE_CODES.md                   # catálogo de codRespuesta
 │   ├── PORT_MANAGEMENT.md                  # inventario de puertos
-│   ├── AGENTS-microservicio-template.md    # plantilla de AGENTS.md
-│   └── IA-microservicios-flujo.md          # este documento
+│   ├── AGENTS.template.md                  # plantilla de AGENTS.md
+│   └── flujo-trabajo-ia.md                 # este documento
 │
 └── opencode/                               # configuración de la herramienta
     ├── skills/                             # espejo de ~/.config/opencode/skills
@@ -312,7 +312,7 @@ Cuando dos fuentes se contradicen, este es el orden:
    el consumidor es un modelo de lenguaje.
 3. Toda regla debe indicar **cómo verificarla**. Una regla sin verificación es una recomendación.
 4. Propagar a la skill correspondiente si es accionable en el día a día.
-5. Si es no negociable, añadirla también a `AGENTS-microservicio-template.md`.
+5. Si es no negociable, añadirla también a `AGENTS.template.md`.
 6. Sincronizar las copias (sección 5).
 
 ### Al crear una skill nueva

@@ -17,7 +17,7 @@ En la raíz quedan los apuntes generales por tema: `Git_diario.md`, `Linux_diari
 
 ## Microservicios
 
-Punto de entrada: **[microservicios/IA-microservicios-flujo.md](microservicios/IA-microservicios-flujo.md)** —
+Punto de entrada: **[microservicios/flujo-trabajo-ia.md](microservicios/flujo-trabajo-ia.md)** —
 explica cómo encajan la norma, las skills y el subagente de revisión, y cómo arrancar un microservicio nuevo.
 
 Índice de la carpeta: [microservicios/README.md](microservicios/README.md).

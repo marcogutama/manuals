@@ -16,7 +16,7 @@ Los documentos viven **fuera** del repositorio del microservicio, en el director
 ├── microservices-ai-rules.md          # norma canónica
 ├── PORT_MANAGEMENT.md                 # inventario de puertos — leer y actualizar
 ├── RESPONSE_CODES.md                  # catálogo de codRespuesta
-└── AGENTS-microservicio-template.md   # plantilla de AGENTS.md del repo
+└── AGENTS.template.md                 # plantilla de AGENTS.md del repo
 ```
 
 Léelos con rutas absolutas: `/home/marco/Documents/manuals/microservicios/PORT_MANAGEMENT.md`. **No** los
@@ -111,7 +111,7 @@ Quarkus genera un proyecto que aún no cumple el estándar. Ajustes inmediatos:
 4. **`.gitignore`** — verificar que incluya `target/`.
 5. Añadir las dependencias de test y el `jacoco-maven-plugin` con el gate (skill `quarkus-testing`).
 6. Crear el `AGENTS.md` del repositorio desde
-   `/home/marco/Documents/manuals/microservicios/AGENTS-microservicio-template.md`.
+   `/home/marco/Documents/manuals/microservicios/AGENTS.template.md`.
 7. Verificar que arranca: `./mvnw quarkus:dev` con el `JAVA_HOME` de Java 25.
 
 ## Elección de arquitectura

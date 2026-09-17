@@ -3,18 +3,18 @@
 Estándar de ingeniería para microservicios Quarkus reactivos. Java 25 · Mutiny · MicroProfile · Jakarta EE ·
 despliegue en OpenShift.
 
-**Empieza por [IA-microservicios-flujo.md](IA-microservicios-flujo.md)** si es tu primera vez: explica cómo
+**Empieza por [flujo-trabajo-ia.md](flujo-trabajo-ia.md)** si es tu primera vez: explica cómo
 encajan estos documentos con las skills y el subagente de revisión, y cómo arrancar un microservicio nuevo.
 
 ## Documentos
 
 | Documento | Rol | Cuándo consultarlo |
 |---|---|---|
-| [IA-microservicios-flujo.md](IA-microservicios-flujo.md) | Guía del flujo de trabajo con IA | Al empezar, o al dudar de qué archivo hace qué |
+| [flujo-trabajo-ia.md](flujo-trabajo-ia.md) | Guía del flujo de trabajo con IA | Al empezar, o al dudar de qué archivo hace qué |
 | [microservices-ai-rules.md](microservices-ai-rules.md) | Norma canónica (~3200 líneas) | Referencia; para el detalle de una regla concreta |
 | [RESPONSE_CODES.md](RESPONSE_CODES.md) | Catálogo maestro de `codRespuesta` | Antes de definir cualquier código de negocio |
 | [PORT_MANAGEMENT.md](PORT_MANAGEMENT.md) | Inventario de puertos locales | Al crear un servicio; **actualizar en el mismo PR** |
-| [AGENTS-microservicio-template.md](AGENTS-microservicio-template.md) | Plantilla de `AGENTS.md` | Al crear un repositorio nuevo |
+| [AGENTS.template.md](AGENTS.template.md) | Plantilla de `AGENTS.md` | Al crear un repositorio nuevo |
 
 La norma es extensa a propósito: sirve de referencia consultable. **No se carga entera en una sesión de IA** —
 para eso están las skills en [`../opencode/skills/`](../opencode/skills/), que contienen las reglas accionables
@@ -47,4 +47,4 @@ CI). Si lo es, va a la sección 27 de la norma y al pipeline: una regla ejecutab
 en Markdown se cumple cuando alguien la recuerda.
 
 El procedimiento completo está en la sección 7 de
-[IA-microservicios-flujo.md](IA-microservicios-flujo.md#7-mantenimiento).
+[flujo-trabajo-ia.md](flujo-trabajo-ia.md#7-mantenimiento).

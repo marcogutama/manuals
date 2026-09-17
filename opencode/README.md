@@ -65,4 +65,4 @@ sincronización manual, a cambio de que la configuración dependa de que exista.
 - **Contenido accionable**, no explicativo. Si una skill pasa de ~300 líneas, probablemente son dos.
 
 Detalle del flujo completo en
-[../microservicios/IA-microservicios-flujo.md](../microservicios/IA-microservicios-flujo.md).
+[../microservicios/flujo-trabajo-ia.md](../microservicios/flujo-trabajo-ia.md).
