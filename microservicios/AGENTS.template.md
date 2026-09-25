@@ -28,6 +28,7 @@ usa las skills, que contienen las reglas accionables por dominio.
 | Clientes externos, @Retry, @CircuitBreaker, colas, event loop | `quarkus-resilience` |
 | Tests, cobertura, JaCoCo, mocks | `quarkus-testing` |
 | Crear un microservicio nuevo o validar su estructura | `quarkus-microservice-scaffold` |
+| Cambiar version en pom.xml, corregir vulnerabilidades, `snyk test` | `quarkus-dependency-security` |
 
 Antes de abrir el PR: `@quarkus-reviewer` revisa el cambio contra el estándar.
 

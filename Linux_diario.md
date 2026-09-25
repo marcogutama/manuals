@@ -27,6 +27,9 @@ Usa las teclas:
 - /texto: Buscar "texto" dentro del archivo (por ejemplo, /axentria).
 - N: Ir a la siguiente coincidencia de búsqueda.
 - Q: Salir del visor.
+- `G` (mayúscula): salta al final del archivo.
+- `Shift + G`: lo mismo que arriba.
+- `g` (minúscula): vuelve al inicio.
 
 ### Tail
 Ver ultimas 10 lineas
@@ -63,6 +66,10 @@ Si deseas extraer en una carpeta específica, puedes añadir la opción `-C` seg
 
 ```bash
 tar -xzf geminicommit-v0.2.6-linux-amd64.tar.gz -C /ruta/destino
+```
+Opcion 2:
+```bash
+unzip CORE.war -d CORE_extraido
 ```
 
 ## Validar conectividad a una IP y puerto específico 

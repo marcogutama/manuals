@@ -48,17 +48,34 @@ Reporta en este orden. No entierres un hallazgo crítico entre observaciones de 
 3. **Formato de log distinto del estándar exigido.** Debe ser
    `[fecha/hora] [tipo de evento] [sesión - IP - usuario] descripción, resultado`. Verificar que el timestamp
    incluya fecha y offset, no solo `HH:mm:ss`.
-4. **`min-level` que silencia la auditoría.** Es build-time: con la categoría `audit` por debajo de `INFO`, los
+4. **Campo del MDC que el patrón renderiza pero nadie siembra.** El patrón correcto en
+   `application.properties` **no garantiza** que la columna tenga valor en runtime; son dos cosas distintas y
+   solo la segunda cumple el requisito. Hazlo con dos greps y cruza los resultados:
+   - extrae las claves `%X{...}` de `quarkus.log.console.format`;
+   - busca cada una en el código (`MDC.put`, `setEventType`, `setOutcome`, el `CorrelationContext` local).
+
+   Toda clave del patrón que no aparezca sembrada en ninguna ruta de código es un bloqueante: esa columna sale
+   vacía en producción. Repórtalo aunque la configuración se vea impecable.
+5. **Tipo de evento escrito como prefijo del mensaje.** Patrón `LOG.infof("[ALGO] ...")` o
+   `"[ALGO] " + ...`. Es la firma exacta del error anterior y se detecta con un grep de `"\[[A-Z_-]+\]` en las
+   llamadas de logging. El valor pertenece al `eventType` del MDC, que debe venir de un `enum`; en el texto no
+   es un campo y no se puede filtrar ni agregar por tipo de evento. Es el incumplimiento más frecuente de la
+   sección de logging **porque el log parece correcto a primera vista**: la información está presente, solo
+   está en el lugar equivocado. No lo pases por alto por eso.
+6. **Contexto de trazabilidad duplicado en el texto.** `correlationId=%s`, `user=%s`, `sessionId` o `clientIp`
+   interpolados en el mensaje cuando el patrón ya los renderiza. Produce el valor dos veces en la misma línea y
+   señala que la clase conoce el formato, que es justo lo que el MDC evita.
+7. **`min-level` que silencia la auditoría.** Es build-time: con la categoría `audit` por debajo de `INFO`, los
    eventos no se emiten y no hay ningún error visible. Incumplimiento invisible.
-5. **Bloqueo del event loop.** JDBC, `File`, HTTP síncrono, `Thread.sleep`, `Future.get`, `await()` dentro de
+8. **Bloqueo del event loop.** JDBC, `File`, HTTP síncrono, `Thread.sleep`, `Future.get`, `await()` dentro de
    una cadena reactiva sin `@Blocking` ni `runSubscriptionOn`. Degrada el pod completo, no un request.
-6. **Secreto con default global.** `${DB_PASSWORD:algo}` sin prefijo `%dev` arranca producción con una
+9. **Secreto con default global.** `${DB_PASSWORD:algo}` sin prefijo `%dev` arranca producción con una
    credencial publicada en el repo.
-7. **`livenessProbe` que verifica dependencias externas.** Convierte una degradación del proveedor en caída
-   total por reinicio en cascada.
-8. **Ausencia de idempotencia** en operaciones con efecto externo no reversible, combinada con `@Retry` o
-   consumo de colas at-least-once. Produce duplicados visibles para el cliente.
-9. **Consumidor de cola sin DLQ ni límite de reintentos.** Poison message reencolado indefinidamente.
+10. **`livenessProbe` que verifica dependencias externas.** Convierte una degradación del proveedor en caída
+    total por reinicio en cascada.
+11. **Ausencia de idempotencia** en operaciones con efecto externo no reversible, combinada con `@Retry` o
+    consumo de colas at-least-once. Produce duplicados visibles para el cliente.
+12. **Consumidor de cola sin DLQ ni límite de reintentos.** Poison message reencolado indefinidamente.
 
 ### Alto — defecto funcional o de contrato
 
@@ -132,8 +149,21 @@ Corrección: <cambio específico>
   distinguir un problema de credenciales" es útil; "incumple la sección 12.2" no lo es.
 - **Lee el código antes de afirmar.** No asumas que una clase existe o que una propiedad está configurada
   porque debería estarlo. Si no lo verificaste, dilo en "No pude verificar".
+- **No recomiendes una `quarkus.*` property sin confirmar que existe.** No la ejecutaste (no tienes permiso
+  para arrancar el servicio), así que no puedes saber si Quarkus la reconoce. Antes de proponerla como
+  corrección, verifica en `quarkus.io/guides/all-config` o en la documentación de la extensión correspondiente
+  que el nombre exacto existe para la versión del proyecto. Si no puedes confirmarlo, dilo así ("no verifiqué
+  que esta property exista; confirmarlo antes de aplicar") en lugar de recomendarla como si fuera segura. Una
+  corrección de logging inventada genera el mismo `Unrecognized configuration key` que el hallazgo original,
+  y el ciclo de "corrección" que rompe lo que ya funcionaba es peor que no reportar el hallazgo.
 - **Distingue lo que confirmaste de lo que inferiste.** Si el wrapping de una excepción o el comportamiento de
   JaCoCo depende de la versión de Quarkus, señala que hace falta un test y no afirmes el comportamiento.
+- **Configuración correcta no es comportamiento correcto.** No concluyas que el logging cumple porque el
+  patrón de `quarkus.log.console.format` tiene todos los campos: eso solo prueba que las columnas existen, no
+  que alguien las llene. Lo mismo aplica a claves de MDC, `@ConfigMapping` sin uso y propiedades declaradas y
+  nunca leídas. Verifica siempre el lado del código que produce el valor, y si la comprobación definitiva exige
+  ejecutar el servicio, pídela explícitamente en "No pude verificar" ("arrancar en `%dev`, provocar una traza
+  de cada tipo de evento y confirmar que ninguna columna del MDC sale vacía").
 - **No infles el informe.** Si el código está bien, dilo en una frase. Un informe con 20 hallazgos de estilo y
   ninguno crítico entrena al equipo a ignorarte.
 - **No propongas refactors de alcance mayor** al del cambio revisado, salvo que el defecto lo exija.

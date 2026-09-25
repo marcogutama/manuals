@@ -36,17 +36,52 @@ Idéntico en los tres perfiles. Los campos vienen del MDC, así que **ninguna cl
 - Todas las posiciones se rellenan con `-` cuando no aplican, para que la línea sea parseable de forma estable.
 - El `eventType` es un **campo del MDC**, no un prefijo `[REQUEST_IN]` incrustado en el texto del mensaje.
 
+### El error recurrente: el prefijo en el texto
+
+Es el incumplimiento más frecuente de esta sección, porque el log *parece* correcto:
+
+```java
+// ❌ El tipo de evento va en el texto: la columna [%X{eventType}] queda vacía
+LOG.infof("[SOAP-IN] Send applicationId=%s", appId);
+// → 2026-09-21T10:59:53 [] [- - 10.16.95.24 - DID] [SOAP-IN] Send ...
+
+// ✔ El tipo de evento va al MDC y ocupa su columna
+CorrelationContext.setEventType(EventType.SOAP_IN);
+LOG.infof("Recepcion de operacion Send applicationId=%s", appId);
+// → 2026-09-21T10:59:53 [SOAP_IN] [- - 10.16.95.24 - DID] Recepcion de operacion Send ...
+```
+
+La información está en ambos casos; en el primero **no es un campo**, así que no se puede filtrar ni agregar
+por tipo de evento. El catálogo de tipos va en un `enum` (`util/EventType.java`), nunca como literal en el
+mensaje: un `String` en el texto no se puede enumerar ni validar.
+
+Todo tipo de evento que el servicio emita debe existir en el `enum`, incluidos los técnicos de transporte
+(recepción, despacho a dependencia, respuesta), no solo los de auditoría.
+
 ## Claves MDC obligatorias
 
 | Clave | Origen | Si no aplica |
 |---|---|---|
 | `correlationId` | Header `X-Correlation-Id` o UUID generado | obligatorio |
-| `eventType` | Catálogo técnico o de auditoría | obligatorio |
+| `eventType` | Catálogo técnico o de auditoría (`enum`) | obligatorio |
 | `outcome` | `SUCCESS` / `FAILURE` / `DENIED` | obligatorio |
 | `user` | `SecurityIdentity.getPrincipal().getName()` o claim `sub` | `anonymous` |
 | `sessionId` | Claim `jti` del JWT; alternativa header `X-Session-Id` | `-` |
 | `clientIp` | `HttpServerRequest.remoteAddress()` | `-` |
 | `service` | `quarkus.application.name` | obligatorio |
+
+**Todas** se inicializan en el borde, con `-` las que no apliquen. Sembrar solo las que "tienen dato" deja
+columnas vacías en la traza y rompe la forma fija que exige el formato.
+
+### `sessionId` no se sintetiza
+
+Si el consumidor no envía sesión, la columna vale `-`. **No** generar un identificador propio: tendría
+correspondencia 1:1 con la solicitud, que es el papel del `correlationId`, y en la traza sería indistinguible
+de una sesión real, induciendo a un auditor a correlacionar operaciones que no comparten sesión. Un campo de
+auditoría que parece dato y es ruido es peor que un campo vacío.
+
+Cuando se necesite trazabilidad de sesión punta a punta, el cambio va en el **consumidor** (que propague
+`X-Session-Id`), no en el servicio que recibe.
 
 ## Reglas de implementación
 
@@ -205,9 +240,38 @@ deprecada desde Quarkus 3.19.
 
 ## Verificación antes de cerrar
 
-Tests obligatorios:
+### Primero: leer la salida real del log
+
+Un test que afirme que el patrón contiene `%X{eventType}` **pasa igual de bien con la columna vacía en
+runtime**. La configuración correcta y el MDC poblado son dos cosas distintas, y solo la segunda cumple el
+requisito de seguridad. Por eso la verificación empieza ejecutando el servicio, no leyendo el properties:
+
+1. Arrancar en `%dev` y provocar **una traza de cada tipo de evento** que el servicio emita (camino feliz,
+   rechazo de negocio, fallo de dependencia).
+2. Copiar las líneas resultantes y revisarlas campo por campo.
+3. Confirmar que **ninguna columna del MDC sale vacía**: `[]` o `[ - - ]` es un hallazgo, no un caso sin dato.
+   Un campo que no aplica vale `-`; un campo vacío significa que nadie lo sembró.
+4. Confirmar que el valor esperado aparece en **su columna**, no dentro del texto del mensaje.
+
+Síntomas de que el MDC no se está poblando, todos observables a simple vista en la salida:
+
+| En el log | Diagnóstico |
+|---|---|
+| `[]` en la posición del tipo de evento | `eventType` nunca sembrado; probablemente va como prefijo del mensaje |
+| `[SOAP-IN] Send ...` en el texto | el tipo de evento se escribió como prefijo en vez de ir al MDC |
+| `outcome=` sin valor | `setOutcome` no se llamó, o se llamó después de escribir |
+| `[cid=]` vacío | el borde no inicializó el contexto, o hubo `clear()` prematuro |
+| `correlationId=x` dentro del texto **y** en `[cid=x]` | se duplica a mano lo que el patrón ya renderiza |
+| `outcome=SUCCESS` en una traza técnica posterior a la auditoría | falta devolver las columnas de evento a `-` |
+
+Esta lista existe porque estos errores **ya ocurrieron teniendo la regla escrita**: no se detectan leyendo el
+código, se detectan leyendo la salida. No cerrar el cambio sin haber hecho el paso 1.
+
+### Tests obligatorios
 
 - El formato de log incluye fecha, tipo de evento, sesión, IP, usuario y resultado.
+- Toda clave del MDC que el patrón renderiza queda poblada tras inicializar el contexto en el borde
+  (ninguna en `null`; las que no aplican, en `-`).
 - `maskPan("4111111111111111")` → `"411111******1111"`.
 - Un PAN embebido en texto libre se enmascara.
 - Un identificador numérico que no pasa Luhn **no** se enmascara.
@@ -217,6 +281,9 @@ Tests obligatorios:
 
 Checklist de revisión:
 
+- [ ] Se leyó la salida real del log y ninguna columna del MDC sale vacía
+- [ ] Ningún mensaje empieza con un prefijo `[ALGO]`: ese valor pertenece al `eventType` del MDC
+- [ ] Ningún mensaje interpola `correlationId`, `user`, `sessionId` ni `clientIp` (ya los renderiza el patrón)
 - [ ] Ningún log interpola un DTO de request completo
 - [ ] `rest-client.logging.scope=none` en `%qa` y `%prod`
 - [ ] Access log sin `%r` ni `%q`

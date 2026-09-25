@@ -270,4 +270,5 @@ producción con una credencial publicada en el repo.
 
 Cargar según la parte en la que se trabaje: `quarkus-logging-audit` (logs, MDC, auditoría, datos sensibles),
 `quarkus-rest-contract` (endpoints, DTOs, OpenAPI, códigos, mappers), `quarkus-resilience` (clientes externos,
-fault tolerance, colas, event loop), `quarkus-testing` (tests y cobertura).
+fault tolerance, colas, event loop), `quarkus-testing` (tests y cobertura), `quarkus-dependency-security`
+(cambios de versión en el `pom.xml`, `snyk test`, corrección de vulnerabilidades).

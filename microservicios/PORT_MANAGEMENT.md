@@ -45,6 +45,7 @@ Para mantener el orden, los puertos se asignan según la capa arquitectónica de
 | **channel-corebank-integrator** | **18002** | Integrator |
 | **documentobjectstorage** | **18002** | Adapter (**Conflicto!**) |
 | **svc-swifttrf-gqlorch** | **18002** | Integrator (**Conflicto!**) |
+| **notification-soap-integrator** | **18010** | Adapter |
 | **custmgt-documentaxentria** | **18300** | Adapter |
 | **channelpartyauthorch** | **28083** | Orchestrator |
 | **customermanagement-adapter** | **28088** | Adapter |
