@@ -168,6 +168,46 @@ export PATH=$JAVA_HOME/bin:$PATH
 mvn clean install
 ```
 ---
+## Guardar la salida de un comando en un archivo (redirección)
+
+### Sobrescribir el archivo (lo crea si no existe)
+```bash
+comando > archivo.txt
+```
+
+### Agregar al final sin sobrescribir
+```bash
+comando >> archivo.txt
+```
+
+### Guardar y ver en pantalla a la vez
+```bash
+comando | tee archivo.txt
+comando | tee -a archivo.txt   # -a: agrega al final en lugar de sobrescribir
+```
+
+### Guardar también los errores (stderr)
+```bash
+comando > salida.txt 2> errores.txt   # separados
+comando > todo.txt 2>&1               # salida y errores en el mismo archivo
+comando > /dev/null 2>&1              # descartar todo
+```
+
+### Ejemplo: decodificar base64 y guardar en archivo
+```bash
+echo '...T48L2h0bWw+' | base64 -d > resultado.txt
+echo '...T48L2h0bWw+' | base64 -d > pagina.html   # si es HTML, usar extensión .html
+```
+
+Si la cadena base64 es muy larga y el shell se queja por el límite de longitud del comando, guardarla primero en un archivo y decodificar desde ahí:
+```bash
+base64 -d entrada.b64 > salida.html
+```
+
+### Notas
+- `>` **sobrescribe sin preguntar**; si dudas, usa `>>` o `set -o noclobber` para evitar pisar archivos por accidente.
+- Para guardar con `sudo`, la redirección la hace tu usuario, no root, por lo que `sudo comando > /ruta/protegida` falla. Usa `comando | sudo tee /ruta/protegida > /dev/null`.
+---
 
 ## Codificación (encriptado) en base64:
 
