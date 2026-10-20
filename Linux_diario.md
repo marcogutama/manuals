@@ -51,6 +51,25 @@ sudo tail -f /var/log/syslog | grep "axentria"
 ----
 ## tar files
 
+### Comprimir
+
+```bash
+tar -czf archivo.tar.gz carpeta_o_archivos
+tar -czf backup.tar.gz archivo1.txt archivo2.txt carpeta/
+```
+
+Donde:
+- `-c`: indica crear un archivo
+- `-z`: indica comprimir con gzip
+- `-f`: indica el nombre del archivo resultante
+
+Para ver el contenido sin extraer: `tar -tzf archivo.tar.gz`
+
+Opcion 2 (zip):
+```bash
+zip -r archivo.zip carpeta
+```
+
 ### Descomprimir
 
 ```bash
