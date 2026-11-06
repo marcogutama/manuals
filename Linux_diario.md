@@ -128,7 +128,7 @@ Sin las opciones -O o -o, curl imprimirá el contenido del archivo directamente 
 ## Identificar qué proceso está usando un puerto (ej. 8585)
 sudo lsof -i :8585
 
-## Ejecutar telnet en un contenedor si herramientas (sin instalar nada)
+## Ejecutar telnet en un contenedor sin herramientas (sin instalar nada)
 
 En Linux puro, puedes usar **`/dev/tcp`** que es una funcionalidad nativa del shell (bash):
 
