@@ -242,6 +242,12 @@ Para codificar el contenido de un archivo:
 base64 archivo.txt > archivo_codificado.txt
 ```
 
+Por defecto, base64 en Linux inserta un salto de línea cada 76 caracteres. Para evitarlo, usa la opción -w 0:
+
+```bash
+base64 -w 0 archivo.txt > archivo_codificado.txt
+```
+
 ## Decodificación (desencriptado) de base64:
 
 Para decodificar texto en base64:
